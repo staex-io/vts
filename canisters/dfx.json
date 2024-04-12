@@ -1,8 +1,8 @@
 {
   "canisters": {
-    "canisters_backend": {
-      "candid": "src/canisters_backend/canisters_backend.did",
-      "package": "canisters_backend",
+    "vts": {
+      "candid": "src/vts/vts.did",
+      "package": "vts",
       "type": "rust"
     }
   },
