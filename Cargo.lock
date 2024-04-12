@@ -5,3 +5,7 @@ version = 3
 [[package]]
 name = "firmware"
 version = "0.1.0"
+
+[[package]]
+name = "gateway"
+version = "0.1.0"
