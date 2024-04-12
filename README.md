@@ -8,5 +8,4 @@ The goal of this project is to develop trusted, transparent and automatic infras
 
 [firmware](./firmware/)
 [gateway](./gateway/)
-[canister](./canister/)
 [vts-ui](./vts-ui/)
