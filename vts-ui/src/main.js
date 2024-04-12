@@ -1,5 +1,11 @@
 import { createApp } from 'vue'
-import './style.css'
 import App from './App.vue'
+import router from './router'
 
-createApp(App).mount('#app')
+import '@fontsource/roboto'
+import '@fontsource/roboto/900.css'
+import './assets/main.css'
+
+const app = createApp(App)
+app.use(router)
+app.mount('#app')
