@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/vts"
+]
+resolver = "2"

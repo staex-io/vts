@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "vts": {
+      "candid": "src/vts/vts.did",
+      "package": "vts",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
