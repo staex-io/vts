@@ -23,3 +23,6 @@ dist/
 
 # environment variables
 .env
+
+# identity file exported for vts canister tests
+identity.pem
