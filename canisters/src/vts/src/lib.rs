@@ -104,6 +104,7 @@ pub struct CanisterState {
 
 pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: String, gas_price: String) -> Result<u128, String> {
 
+    //TODO: check if vh_provider and vh_customer are empty
     if name.is_empty() || daily_usage_fee.is_empty() || gas_price.is_empty() {
         return Err("Parameters cannot be empty".to_string());
     }
