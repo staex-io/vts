@@ -1,10 +1,10 @@
 use candid::{CandidType, Deserialize, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
-use rust_decimal::Decimal;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use serde::Serialize;
+
 
 #[derive(Clone, Debug, Default, CandidType, Deserialize, PartialEq)]
 pub enum Error {
@@ -70,25 +70,33 @@ struct Customer {
     agreements: Vec<u128>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
 pub struct AgreementConditions {
-    #[serde(with = "rust_decimal::serde::str")]
-    daily_usage_fee: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
-    gas_price: Decimal,
+    daily_usage_fee: f64,
+    gas_price: f64,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+impl AgreementConditions {
+    pub fn get_daily_usage_fee(&self) -> f64 {
+        self.daily_usage_fee
+    }
+
+    pub fn get_gas_price(&self) -> f64 {
+        self.gas_price
+    }
+}
+
+#[derive(Clone, CandidType, Deserialize, Debug)]
 pub struct Agreement {
     pub name: String,
     pub vh_provider: Principal,
     pub vh_customer: Principal,
     pub state: AgreementState,
-    conditions: AgreementConditions,
+    pub conditions: AgreementConditions,
     pub vehicles: Vec<u128>,
 }
 
-#[derive(Clone, CandidType, Deserialize, Debug)]
+#[derive(Clone, CandidType, Deserialize, Debug, PartialEq)]
 pub enum AgreementState {
     Unsigned,
     Signed,
@@ -103,9 +111,7 @@ pub struct CanisterState {
     pub next_agreement_id: u128,
 }
 
-#[ic_cdk_macros::update]
-pub fn create_agreement(name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: Decimal, gas_price: Decimal) -> u128 {
-    let mut state = CanisterState::default(); // Beispiel zur Verwaltung des Zustands, anpassen nach Bedarf
+pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: f64, gas_price: f64) -> u128 {
     let agreement_id = state.next_agreement_id;
     state.next_agreement_id += 1;
 

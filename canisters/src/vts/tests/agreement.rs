@@ -1,43 +1,29 @@
-use vts::{create_agreement, CanisterState, AgreementState}; // Ensure correct import paths
+use vts::{create_agreement, CanisterState, AgreementState};
 use candid::Principal;
 
-// Mock the caller environment if necessary (adjust based on your setup and testing framework)
-fn setup() -> CanisterState {
-    CanisterState::default()
-}
-
 #[test]
-fn test_agreement_creation_success() {
-    let state = setup();
-    let principal_provider = Principal::anonymous();
-    let principal_customer = Principal::anonymous();
+fn test_create_agreement() {
+    let name = "Test Agreement".to_string();
+    let vh_provider = Principal::anonymous();
+    let vh_customer = Principal::anonymous();
+    let daily_usage_fee = 10.0;
+    let gas_price = 2.0;
 
-    let agreement_id = create_agreement(
-        "New Agreement".to_string(),
-        principal_provider,
-        principal_customer,
-        150.50,
-        10.00
-    );
 
-    assert!(state.agreements.contains_key(&agreement_id), "Agreement was not added.");
-    let agreement = state.agreements.get(&agreement_id).expect("Failed to retrieve agreement.");
-    assert_eq!(agreement.name, "New Agreement");
-    assert!(matches!(agreement.state, AgreementState::Unsigned));
-}
+    let mut state = CanisterState::default();
 
-#[test]
-fn test_agreement_creation_failure() {
-    let _state = setup();
-    let result = std::panic::catch_unwind(|| {
-        create_agreement(
-            "Faulty Agreement".to_string(),
-            Principal::anonymous(),
-            Principal::anonymous(),
-            150.50,
-            10.00
-        );
-    });
+    let agreement_id = create_agreement(&mut state, name.clone(), vh_provider.clone(), vh_customer.clone(), daily_usage_fee, gas_price);
 
-    assert!(result.is_err(), "Expected a panic due to invalid float parsing");
+    assert_eq!(agreement_id, 0);
+
+    let agreement = state.agreements.get(&agreement_id).expect("Failed to get agreement from state");
+    assert_eq!(agreement.name, name);
+    assert_eq!(agreement.vh_provider, vh_provider);
+    assert_eq!(agreement.vh_customer, vh_customer);
+    assert_eq!(agreement.state, AgreementState::Unsigned);
+    assert_eq!(agreement.conditions.get_daily_usage_fee(), daily_usage_fee);
+    assert_eq!(agreement.conditions.get_gas_price(), gas_price);
+
+    assert!(state.vh_providers.get(&vh_provider).unwrap().contains_key(&agreement_id));
+    assert!(state.vh_customers.get(&vh_customer).unwrap().contains_key(&agreement_id));
 }
