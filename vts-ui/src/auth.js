@@ -7,7 +7,8 @@ export const auth = async () => {
   } else {
     await new Promise((resolve) => {
       authClient.login({
-        identityProvider: 'https://identity.ic0.app',
+        // configure this using envs
+        identityProvider: 'http://bd3sg-teaaa-aaaaa-qaaba-cai.localhost:7777',
         onSuccess: resolve,
       })
     })

@@ -12,8 +12,10 @@ start:
 
 install: update_candid
 	dfx canister create vts
+	dfx canister create internet_identity
 	dfx build
 	dfx canister install vts
+	dfx canister install internet_identity
 
 update_candid:
 	cargo build --release --target wasm32-unknown-unknown --package vts

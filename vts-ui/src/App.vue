@@ -18,21 +18,7 @@ export default {
       </a>
       <ul>
         <li>
-          <RouterLink to="/vehicles">Vehicles</RouterLink>
-        </li>
-        <li class="menu-item">
-          <RouterLink to="/">Agreements</RouterLink>
-          <ul class="submenu">
-            <li>
-              <RouterLink to="/agreements/create">Create Agreement</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/agreements/sign">Sign Agreement</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/agreements">Agreements</RouterLink>
-            </li>
-          </ul>
+          <RouterLink to="/firmwares">Firmwares</RouterLink>
         </li>
       </ul>
     </nav>
