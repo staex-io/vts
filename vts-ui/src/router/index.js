@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { auth } from '../auth'
+
 import VehiclesView from '@/views/VehiclesView.vue'
 import GetVehicle from '@/views/GetVehicle.vue'
 import CreateAgreement from '@/views/CreateAgreement.vue'
@@ -45,6 +47,10 @@ const router = createRouter({
       component: AgreementsView,
     },
   ],
+})
+router.beforeEach(async (to, from, next) => {
+  await auth()
+  next()
 })
 
 export default router

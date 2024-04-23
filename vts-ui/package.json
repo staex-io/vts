@@ -11,18 +11,19 @@
     "format": "prettier --write src/ --write vite.config.js"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "@fontsource/roboto": "^5.0.12",
+    "@dfinity/auth-client": "^1.2.0",
+    "@fontsource/roboto": "^5.0.13",
     "normalize.css": "^8.0.1",
-    "vue-router": "^4.3.0"
+    "vue": "^3.4.24",
+    "vue-router": "^4.3.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
-    "vite": "^5.2.8",
+    "vite": "^5.2.10",
     "@rushstack/eslint-patch": "^1.10.2",
     "@vue/eslint-config-prettier": "^9.0.0",
     "eslint": "^8.57.0",
-    "eslint-plugin-vue": "^9.24.1",
+    "eslint-plugin-vue": "^9.25.0",
     "prettier": "^3.2.5"
   }
 }
