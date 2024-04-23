@@ -3,7 +3,8 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemor
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use serde::Serialize;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::FromStr;
 
 
 #[derive(Clone, Debug, Default, CandidType, Deserialize, PartialEq)]
@@ -70,23 +71,13 @@ struct Customer {
     agreements: Vec<u128>,
 }
 
-#[derive(Clone, CandidType, Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct AgreementConditions {
-    daily_usage_fee: f64,
-    gas_price: f64,
+    pub daily_usage_fee: Decimal,
+    pub gas_price: Decimal,
 }
 
-impl AgreementConditions {
-    pub fn get_daily_usage_fee(&self) -> f64 {
-        self.daily_usage_fee
-    }
-
-    pub fn get_gas_price(&self) -> f64 {
-        self.gas_price
-    }
-}
-
-#[derive(Clone, CandidType, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct Agreement {
     pub name: String,
     pub vh_provider: Principal,
@@ -111,7 +102,12 @@ pub struct CanisterState {
     pub next_agreement_id: u128,
 }
 
-pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: f64, gas_price: f64) -> u128 {
+pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: String, gas_price: String) -> Result<u128, String> {
+
+    if name.is_empty() || daily_usage_fee.is_empty() || gas_price.is_empty() {
+        return Err("Parameters cannot be empty".to_string());
+    }
+
     let agreement_id = state.next_agreement_id;
     state.next_agreement_id += 1;
 
@@ -121,8 +117,8 @@ pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Pr
         vh_customer: vh_customer.clone(),
         state: AgreementState::Unsigned,
         conditions: AgreementConditions {
-            daily_usage_fee: daily_usage_fee,
-            gas_price: gas_price
+            daily_usage_fee: Decimal::from_str(&daily_usage_fee).unwrap_or_default(),
+            gas_price: Decimal::from_str(&gas_price).unwrap_or_default(),
         },
         vehicles: vec![],
     };
@@ -131,5 +127,5 @@ pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Pr
     state.vh_providers.entry(vh_provider).or_default().insert(agreement_id, agreement.clone());
     state.vh_customers.entry(vh_customer).or_default().insert(agreement_id, agreement);
 
-    agreement_id
+    Ok(agreement_id)
 }
