@@ -11,11 +11,7 @@ start:
 	dfx start --clean --host 127.0.0.1:7777
 
 install: update_candid update_declarations
-	dfx canister create vts
-	dfx canister create internet_identity
-	dfx build
-	dfx canister install vts
-	dfx canister install internet_identity
+	dfx deploy
 
 update_candid:
 	cargo build --release --target wasm32-unknown-unknown --package vts
