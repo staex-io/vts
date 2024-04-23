@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { auth } from '../auth'
+import { initAuthClient } from '@/icp'
 
 import FirmwaresView from '@/views/FirmwaresView.vue'
 
@@ -19,7 +19,7 @@ const router = createRouter({
   ],
 })
 router.beforeEach(async (to, from, next) => {
-  await auth()
+  await initAuthClient()
   next()
 })
 

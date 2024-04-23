@@ -20,5 +20,3 @@ make start
 make install
 make test
 ```
-
-TODO: GENERATE AND COPY DECLARATION ON BUILD TO FRONTEND ASSETS FOLDER
