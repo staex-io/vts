@@ -103,11 +103,12 @@ pub struct CanisterState {
 }
 
 pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: String, gas_price: String) -> Result<u128, String> {
-
-    //TODO: check if vh_provider and vh_customer are empty
-    if name.is_empty() || daily_usage_fee.is_empty() || gas_price.is_empty() {
-        return Err("Parameters cannot be empty".to_string());
+    if name.is_empty() {
+        return Err("Agreement name cannot be empty".to_string());
     }
+
+    let daily_usage_fee_decimal = Decimal::from_str(&daily_usage_fee).map_err(|_| "Invalid format for daily usage fee".to_string())?;
+    let gas_price_decimal = Decimal::from_str(&gas_price).map_err(|_| "Invalid format for gas price".to_string())?;
 
     let agreement_id = state.next_agreement_id;
     state.next_agreement_id += 1;
@@ -118,8 +119,8 @@ pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Pr
         vh_customer: vh_customer.clone(),
         state: AgreementState::Unsigned,
         conditions: AgreementConditions {
-            daily_usage_fee: Decimal::from_str(&daily_usage_fee).unwrap_or_default(),
-            gas_price: Decimal::from_str(&gas_price).unwrap_or_default(),
+            daily_usage_fee: daily_usage_fee_decimal,
+            gas_price: gas_price_decimal,
         },
         vehicles: vec![],
     };
