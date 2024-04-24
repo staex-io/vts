@@ -61,4 +61,8 @@ export default {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.alert {
+  margin-top: 20px;
+}
+</style>

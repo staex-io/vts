@@ -1,4 +1,4 @@
-# Vue 3 + Vite
+# VTS UI
 
 ## Usage
 
