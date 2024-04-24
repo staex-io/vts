@@ -33,15 +33,31 @@ export default {
 
 <template>
   <h1>Firmwares</h1>
-  <button type="button" @click="request">
+  <button
+    type="button"
+    @click="request"
+  >
     <span v-if="!loading">Request</span>
-    <div class="loader" v-if="loading"></div>
+    <div
+      v-if="loading"
+      class="loader"
+    />
   </button>
   <div>
-    <p class="success alert" v-if="success !== ''">{{ success }}</p>
+    <p
+      v-if="success !== ''"
+      class="success alert"
+    >
+      {{ success }}
+    </p>
   </div>
   <div>
-    <p class="error alert" v-if="error !== ''">{{ error }}</p>
+    <p
+      v-if="error !== ''"
+      class="error alert"
+    >
+      {{ error }}
+    </p>
   </div>
 </template>
 
