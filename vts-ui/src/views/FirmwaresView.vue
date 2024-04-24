@@ -6,26 +6,25 @@ export default {
     return {
       loading: false,
       success: '',
-      error: ''
+      error: '',
     }
   },
   methods: {
+    cleanState() {
+      this.success = ''
+      this.error = ''
+    },
     async request() {
-      if (this.loading) {
-        console.log("..")
-        return
-      }
-      this.loading = true;
-      this.success = '';
-      this.error = '';
+      if (this.loading) return
+      this.loading = true
+      this.cleanState()
+
       const vtsClient = await initVTSClient()
-      console.log(vtsClient)
-      console.log(vtsClient.request_firmware)
       const res = await vtsClient.request_firmware()
-      console.log(res)
-      console.log(res.Ok)
-      if (res.Ok === null) this.success = "Successfully requested new firmware!";
-      if (res.Err && res.Err.AlreadyExists === null) this.error = 'You already have active firmware request.';
+      if (res.Ok === null) this.success = 'Successfully requested new firmware!'
+      if (res.Err && res.Err.AlreadyExists === null)
+        this.error = 'You already have active firmware request.'
+
       this.loading = false
     },
   },

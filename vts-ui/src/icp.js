@@ -24,9 +24,6 @@ export const initVTSClient = async () => {
     host: import.meta.env.VITE_ICP_NODE_ENDPOINT,
     identity: authClient.getIdentity(),
   })
-  if (agent.isLocal()) {
-    await agent.fetchRootKey()
-  }
   const actor = await createActor(import.meta.env.VITE_VTS_CANISTER_ID, { agent })
   return actor
 }

@@ -249,11 +249,11 @@ select {
   flex: 2;
 }
 
-.form-container>*:first-child {
+.form-container > *:first-child {
   margin-left: 0;
 }
 
-.form-container>*:last-child {
+.form-container > *:last-child {
   margin-right: 0;
 }
 
@@ -294,16 +294,16 @@ select {
     align-items: stretch;
   }
 
-  .form-container>* {
+  .form-container > * {
     margin: 5px 0 !important;
     width: auto !important;
   }
 
-  .form-container>*:first-child {
+  .form-container > *:first-child {
     margin-top: 0 !important;
   }
 
-  .form-container>*:last-child {
+  .form-container > *:last-child {
     margin-bottom: 0 !important;
   }
 }

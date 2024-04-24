@@ -12,16 +12,19 @@ export default {
     }
   },
   methods: {
+    async initAuthClient() {
+      this.authClient = await initAuthClient()
+      this.principal = this.authClient.getIdentity().getPrincipal().toText()
+    },
     async logout() {
       await this.authClient.logout()
       alert('You are successfully logout. Please login again :)')
-      location.reload()
+      await this.initAuthClient()
     },
   },
   async beforeMount() {
     router.push({ path: window.location.pathname })
-    this.authClient = await initAuthClient()
-    this.principal = this.authClient.getIdentity().getPrincipal().toText()
+    await this.initAuthClient()
   },
 }
 </script>
