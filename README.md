@@ -6,7 +6,7 @@ The goal of this project is to develop trusted, transparent and automatic infras
 
 ## Components
 
-[firmware](./firmware/)
-[gateway](./gateway/)
-[canisters](./canisters/)
+[firmware](./firmware/) \
+[gateway](./gateway/) \
+[canisters](./canisters/) \
 [vts-ui](./vts-ui/)
