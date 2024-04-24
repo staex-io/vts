@@ -40,7 +40,7 @@ export default {
           <RouterLink to="/firmwares">Firmwares</RouterLink>
         </li>
         <li class="mouse-pointer" @click="logout()">
-          <!-- We need tag <a> to make it style like other manu entities. -->
+          <!-- We need tag <a> to make it style like other menu entities. -->
           <a>Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a>
         </li>
       </ul>
