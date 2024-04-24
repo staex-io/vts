@@ -12,8 +12,7 @@ ic-cdk = { version = "0.13.2", features = [], default-features = false }
 ic-stable-structures = { version = "0.6.4", features = [], default-features = false }
 serde = { version = "1.0.198", features = [], default-features = false }
 ic-cdk-macros = { version = "0.13.2", features = [], default-features = false }
-rust_decimal = { version = "1.35.0", features = ["serde-with-str"] }
-rust_decimal_macros = { version = "1.34.2", features = [], default-features = false }
+rust_decimal = { version = "1.35.0", features = [], default-features = false  }
 
 [dev-dependencies]
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"], default-features = false }
