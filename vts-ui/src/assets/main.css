@@ -324,6 +324,7 @@ select {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  /* To not hide content by horizontal scroll view. */
   padding-bottom: 5px;
 }
 
