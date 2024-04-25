@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::FromStr;
 
 
-#[derive(Clone, Debug, Default, CandidType, Deserialize, PartialEq)]
+#[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
     #[default]
     Internal,
@@ -16,7 +16,7 @@ pub enum Error {
 
 pub type VTSResult<T> = Result<T, Error>;
 
-#[derive(Clone, Debug, Default, CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct UploadFirmwareRequest {
     pub principal: String,
     pub _firmware: Vec<u8>,

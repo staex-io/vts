@@ -1,0 +1,11 @@
+type Error = variant { Internal; AlreadyExists };
+type Result = variant { Ok; Err : Error };
+type UploadFirmwareRequest = record {
+  "principal" : text;
+  _firmware : blob;
+  _arch : text;
+};
+service : {
+  request_firmware : () -> (Result);
+  upload_firmware : (UploadFirmwareRequest) -> (Result);
+}
