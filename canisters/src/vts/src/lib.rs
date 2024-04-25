@@ -3,7 +3,7 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemor
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use std::cell::RefCell;
 
-#[derive(Clone, Debug, Default, CandidType, Deserialize, PartialEq)]
+#[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
     #[default]
     Internal,
@@ -12,7 +12,7 @@ pub enum Error {
 
 pub type VTSResult<T> = Result<T, Error>;
 
-#[derive(Clone, Debug, Default, CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct UploadFirmwareRequest {
     pub principal: String,
     pub _firmware: Vec<u8>,

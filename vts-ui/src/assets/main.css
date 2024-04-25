@@ -1,4 +1,4 @@
-@import '../../node_modules/normalize.css/normalize.css';
+@import url('https://cdn.jsdelivr.net/npm/gardevoir');
 
 :root {
   --staex-dark-pacific-blue: rgb(0, 47, 59);
@@ -308,10 +308,42 @@ select {
   }
 }
 
+@media (max-width: 800px) {
+  .nav-desktop {
+    display: none;
+  }
+}
+
+@media (min-width: 800px) {
+  .nav-mobile {
+    display: none;
+  }
+}
+
 .h-scroll-container {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   /* To not hide content by horizontal scroll view. */
   padding-bottom: 5px;
+}
+
+.loader {
+  border: 4px solid var(--staex-stardust-silver);
+  border-top: 4px solid var(--staex-dark-pacific-blue);
+  border-radius: 50%;
+  width: 15px;
+  height: 15px;
+  box-sizing: unset;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }

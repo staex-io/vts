@@ -1,11 +1,30 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import { initAuthClient } from '@/icp'
 </script>
 <script>
 import router from '@/router'
 export default {
-  beforeMount() {
+  data() {
+    return {
+      authClient: null,
+      principal: '',
+    }
+  },
+  async beforeMount() {
     router.push({ path: window.location.pathname })
+    await this.initAuthClient()
+  },
+  methods: {
+    async initAuthClient() {
+      this.authClient = await initAuthClient()
+      this.principal = this.authClient.getIdentity().getPrincipal().toText()
+    },
+    async logout() {
+      await this.authClient.logout()
+      alert('You are successfully logout. Please login again :)')
+      await this.initAuthClient()
+    },
   },
 }
 </script>
@@ -14,25 +33,24 @@ export default {
   <header>
     <nav>
       <a href="/">
-        <img class="logo" alt="Staex logo" src="@/assets/logo-light.svg" />
+        <img
+          class="logo"
+          alt="Staex logo"
+          src="@/assets/logo-light.svg"
+        >
       </a>
       <ul>
         <li>
-          <RouterLink to="/vehicles">Vehicles</RouterLink>
+          <RouterLink to="/firmwares">
+            Firmwares
+          </RouterLink>
         </li>
-        <li class="menu-item">
-          <RouterLink to="/">Agreements</RouterLink>
-          <ul class="submenu">
-            <li>
-              <RouterLink to="/agreements/create">Create Agreement</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/agreements/sign">Sign Agreement</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/agreements">Agreements</RouterLink>
-            </li>
-          </ul>
+        <li
+          class="mouse-pointer"
+          @click="logout()"
+        >
+          <!-- We need tag <a> to make it style like other menu entities. -->
+          <a>Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a>
         </li>
       </ul>
     </nav>

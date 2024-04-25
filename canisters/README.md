@@ -3,13 +3,9 @@
 ## Usage
 
 ```shell
-# In the first terminal session.
-dfx start --clean
-# In the second terminal session.
-dfx canister create vts
-dfx build
-dfx canister install vts
-dfx canister call vts request_firmware
+make start
+# Next command in another terminal session.
+make install
 ```
 
 ### Tests
