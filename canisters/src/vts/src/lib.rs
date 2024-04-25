@@ -93,41 +93,50 @@ pub enum AgreementState {
     Signed,
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct CanisterState {
-    pub vh_providers: HashMap<Principal, HashMap<u128, Agreement>>,
-    pub vh_customers: HashMap<Principal, HashMap<u128, Agreement>>,
-    pub agreements: HashMap<u128, Agreement>,
-    pub vehicles: HashMap<u128, String>,
     pub next_agreement_id: u128,
 }
 
-pub fn create_agreement(state: &mut CanisterState, name: String, vh_provider: Principal, vh_customer: Principal, daily_usage_fee: String, gas_price: String) -> Result<u128, String> {
-    if name.is_empty() {
-        return Err("Agreement name cannot be empty".to_string());
+
+#[derive(Default)]
+pub struct AgreementStorage {
+    agreements: HashMap<u128, Agreement>,
+}
+
+fn get_agreement_storage() -> RefCell<AgreementStorage> {
+    thread_local! {
+        static AGREEMENT_STORAGE: RefCell<AgreementStorage> = RefCell::new(AgreementStorage::default());
     }
+    AGREEMENT_STORAGE.with(|storage| storage)
+}
 
-    let daily_usage_fee_decimal = Decimal::from_str(&daily_usage_fee).map_err(|_| "Invalid format for daily usage fee".to_string())?;
-    let gas_price_decimal = Decimal::from_str(&gas_price).map_err(|_| "Invalid format for gas price".to_string())?;
 
-    let agreement_id = state.next_agreement_id;
-    state.next_agreement_id += 1;
+
+#[ic_cdk::update]
+fn create_agreement(name: String, vh_customer: Principal, daily_usage_fee: String, gas_price: String) -> Result<u128, Error> {
+
+    let daily_usage_fee_decimal = Decimal::from_str(&daily_usage_fee);
+    let gas_price_decimal = Decimal::from_str(&gas_price);
+
+    let mut agreement_storage = get_agreement_storage().borrow_mut();
+    let mut next_agreement_id = agreement_storage.agreements.len() as u128;
+    next_agreement_id += 1;
 
     let agreement = Agreement {
         name,
-        vh_provider: vh_provider.clone(),
-        vh_customer: vh_customer.clone(),
+        vh_provider: ic_cdk::api::caller(),
+        vh_customer,
         state: AgreementState::Unsigned,
         conditions: AgreementConditions {
-            daily_usage_fee: daily_usage_fee_decimal,
-            gas_price: gas_price_decimal,
+            daily_usage_fee: daily_usage_fee_decimal.unwrap(),
+            gas_price: gas_price_decimal.unwrap(),
         },
         vehicles: vec![],
     };
 
-    state.agreements.insert(agreement_id, agreement.clone());
-    state.vh_providers.entry(vh_provider).or_default().insert(agreement_id, agreement.clone());
-    state.vh_customers.entry(vh_customer).or_default().insert(agreement_id, agreement);
+    let mut agreement_storage = get_agreement_storage().borrow_mut();
+    agreement_storage.agreements.insert(next_agreement_id, agreement);
 
-    Ok(agreement_id)
+    Ok(next_agreement_id)
 }
