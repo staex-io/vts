@@ -2,7 +2,6 @@ use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
-use rust_decimal::Decimal;
 use std::borrow::Cow;
 use std::cell::RefCell;
 
@@ -100,64 +99,48 @@ fn upload_firmware(req: UploadFirmwareRequest) -> VTSResult<()> {
     Ok(())
 }
 
+#[derive(CandidType, Deserialize, Debug)]
+pub struct Provider {
+    pub agreements: Vec<u128>,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+pub struct Customer {
+    pub agreements: Vec<u128>,
+}
+
+#[ic_cdk::update]
+fn create_agreement(
+    name: String,
+    vh_customer: Principal,
+    daily_usage_fee: String,
+    gas_price: String,
+) -> VTSResult<u128> {
+
+    AGREEMENTS.with(|agreements| {
+        let mut agreements = agreements.borrow_mut();
+
+        let mut next_agreement_id = agreements.len() as u128;
+        next_agreement_id += 1;
+
+        let agreement = Agreement {
+            name,
+            vh_provider: ic_cdk::api::caller(),
+            vh_customer,
+            state: AgreementState::Unsigned,
+            conditions: AgreementConditions {
+                // TODO: use decimals to verify money parameters
+                daily_usage_fee,
+                gas_price,
+            },
+            vehicles: vec![],
+        };
+
+        agreements.insert(next_agreement_id, agreement);
+
+        Ok(next_agreement_id)
+    })
+}
+
 // Enable Candid export (see https://internetcomputer.org/docs/current/developer-docs/backend/rust/generating-candid)
 ic_cdk::export_candid!();
-
-// #[derive(CandidType, Deserialize, Debug)]
-// pub struct Provider {
-//     agreements: Vec<u128>,
-// }
-
-// #[derive(CandidType, Deserialize, Debug)]
-// struct Customer {
-//     agreements: Vec<u128>,
-// }
-
-// #[derive(Default)]
-// pub struct CanisterState {
-//     pub next_agreement_id: u128,
-// }
-
-// #[derive(Default)]
-// pub struct AgreementStorage {
-//     agreements: HashMap<u128, Agreement>,
-// }
-
-// fn get_agreement_storage() -> RefCell<AgreementStorage> {
-//     thread_local! {
-//         static AGREEMENT_STORAGE: RefCell<AgreementStorage> = RefCell::new(AgreementStorage::default());
-//     }
-//     AGREEMENT_STORAGE.with(|storage| storage)
-// }
-
-// #[ic_cdk::update]
-// fn create_agreement(
-//     name: String,
-//     vh_customer: Principal,
-//     daily_usage_fee: String,
-//     gas_price: String,
-// ) -> Result<u128, Error> {
-//     let daily_usage_fee_decimal = Decimal::from_str(&daily_usage_fee);
-//     let gas_price_decimal = Decimal::from_str(&gas_price);
-
-//     let mut agreement_storage = get_agreement_storage().borrow_mut();
-//     let mut next_agreement_id = agreement_storage.agreements.len() as u128;
-//     next_agreement_id += 1;
-
-//     let agreement = Agreement {
-//         name,
-//         vh_provider: ic_cdk::api::caller(),
-//         vh_customer,
-//         state: AgreementState::Unsigned,
-//         conditions: AgreementConditions {
-//             daily_usage_fee: daily_usage_fee_decimal.unwrap(),
-//             gas_price: gas_price_decimal.unwrap(),
-//         },
-//         vehicles: vec![],
-//     };
-
-//     let mut agreement_storage = get_agreement_storage().borrow_mut();
-//     agreement_storage.agreements.insert(next_agreement_id, agreement);
-
-//     Ok(next_agreement_id)
-// }
