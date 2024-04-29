@@ -12,6 +12,8 @@ pub enum Error {
     #[default]
     Internal,
     AlreadyExists,
+    NotFound,
+    InvalidSigner,
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -155,14 +157,14 @@ fn sign_agreement(vh_provider_public_key: String) -> VTSResult<()> {
         match agreement_key {
             Some((_, mut agreement)) => {
                 if agreement.vh_customer != caller {
-                    return Err(Error::Internal);
+                    return Err(Error::InvalidSigner);
                 }
 
                 agreement.state = AgreementState::Signed;
 
                 Ok(())
             },
-            None => Err(Error::Internal),
+            None => Err(Error::NotFound),
         }
     })
 }

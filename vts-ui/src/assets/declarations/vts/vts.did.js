@@ -1,6 +1,8 @@
 export const idlFactory = ({ IDL }) => {
   const Error = IDL.Variant({
+    'InvalidSigner' : IDL.Null,
     'Internal' : IDL.Null,
+    'NotFound' : IDL.Null,
     'AlreadyExists' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });

@@ -1,4 +1,4 @@
-type Error = variant { Internal; AlreadyExists };
+type Error = variant { InvalidSigner; Internal; NotFound; AlreadyExists };
 type Result = variant { Ok : nat; Err : Error };
 type Result_1 = variant { Ok; Err : Error };
 type UploadFirmwareRequest = record {
