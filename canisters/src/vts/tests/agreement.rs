@@ -26,8 +26,13 @@ async fn test_create_agreement() {
 async fn test_sign_agreement() {
     let (agent, canister_id) = init_agent().await;
     let vh_customer = agent.get_principal().unwrap();
-    let vh_provider_public_key = vh_customer.to_text();
-    let result = sign_agreement(&agent, &canister_id, &vh_provider_public_key).await;
+    let name = "Test Agreement".to_string();
+    let daily_usage_fee = "100".to_string();
+    let gas_price = "10".to_string();
+
+    let agreement_id = create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price).await.unwrap();
+
+    let result = sign_agreement(&agent,&canister_id, &agreement_id).await;
     assert!(result.is_ok(), "Should successfully sign the agreement");
 }
 
@@ -60,12 +65,12 @@ async fn create_agreement(
 async fn sign_agreement(
     agent: &Agent,
     canister_id: &Principal,
-    vh_provider_public_key: &str,
+    agreement_id: &u128,
 ) -> VTSResult<()> {
     let response = agent
         .update(canister_id, "sign_agreement")
         .with_effective_canister_id(*canister_id)
-        .with_arg(Encode!(&vh_provider_public_key.to_string()).unwrap())
+        .with_arg(Encode!(&agreement_id).unwrap())
         .call_and_wait()
         .await
         .unwrap();

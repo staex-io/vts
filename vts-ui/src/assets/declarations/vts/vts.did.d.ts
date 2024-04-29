@@ -18,7 +18,7 @@ export interface UploadFirmwareRequest {
 export interface _SERVICE {
   'create_agreement' : ActorMethod<[string, Principal, string, string], Result>,
   'request_firmware' : ActorMethod<[], Result_1>,
-  'sign_agreement' : ActorMethod<[string], Result_1>,
+  'sign_agreement' : ActorMethod<[bigint], Result_1>,
   'upload_firmware' : ActorMethod<[UploadFirmwareRequest], Result_1>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

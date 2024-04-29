@@ -146,25 +146,23 @@ fn create_agreement(
 }
 
 #[ic_cdk::update]
-fn sign_agreement(vh_provider_public_key: String) -> VTSResult<()> {
+fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement signing by {}", caller);
+
     AGREEMENTS.with(|agreements| {
         let agreements = agreements.borrow_mut();
 
-        let agreement_key = agreements.iter().find(|(_, agreement)| agreement.vh_provider.to_text() == vh_provider_public_key);
+        if let Some(mut agreement) = agreements.get(&agreement_id) {
+            if agreement.vh_customer != caller {
+                return Err(Error::InvalidSigner);
+            }
 
-        match agreement_key {
-            Some((_, mut agreement)) => {
-                if agreement.vh_customer != caller {
-                    return Err(Error::InvalidSigner);
-                }
+            agreement.state = AgreementState::Signed;
 
-                agreement.state = AgreementState::Signed;
-
-                Ok(())
-            },
-            None => Err(Error::NotFound),
+            Ok(())
+        } else {
+            Err(Error::NotFound)
         }
     })
 }
