@@ -30,9 +30,12 @@ async fn test_sign_agreement() {
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
 
-    let agreement_id = create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price).await.unwrap();
+    let agreement_id =
+        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+            .await
+            .unwrap();
 
-    let result = sign_agreement(&agent,&canister_id, &agreement_id).await;
+    let result = sign_agreement(&agent, &canister_id, &agreement_id).await;
     assert!(result.is_ok(), "Should successfully sign the agreement");
 }
 
