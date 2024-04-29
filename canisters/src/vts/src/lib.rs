@@ -151,16 +151,21 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     ic_cdk::println!("requested agreement signing by {}", caller);
 
     AGREEMENTS.with(|agreements| {
-        let agreements = agreements.borrow_mut();
+        let mut agreements = agreements.borrow_mut();
 
         if let Some(mut agreement) = agreements.get(&agreement_id) {
             if agreement.vh_customer != caller {
                 return Err(Error::InvalidSigner);
             }
 
-            agreement.state = AgreementState::Signed;
-
-            Ok(())
+            match agreement.state {
+                AgreementState::Signed => return Err(Error::AlreadyExists),
+                _ => {
+                    agreement.state = AgreementState::Signed;
+                    agreements.insert(agreement_id, agreement);
+                    Ok(())
+                }
+            }
         } else {
             Err(Error::NotFound)
         }
