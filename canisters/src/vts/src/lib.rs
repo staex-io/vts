@@ -143,5 +143,29 @@ fn create_agreement(
     })
 }
 
+#[ic_cdk::update]
+fn sign_agreement(vh_provider_public_key: String) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ic_cdk::println!("requested agreement signing by {}", caller);
+    AGREEMENTS.with(|agreements| {
+        let agreements = agreements.borrow_mut();
+
+        let agreement_key = agreements.iter().find(|(_, agreement)| agreement.vh_provider.to_text() == vh_provider_public_key);
+
+        match agreement_key {
+            Some((_, mut agreement)) => {
+                if agreement.vh_customer != caller {
+                    return Err(Error::Internal);
+                }
+
+                agreement.state = AgreementState::Signed;
+
+                Ok(())
+            },
+            None => Err(Error::Internal),
+        }
+    })
+}
+
 // Enable Candid export (see https://internetcomputer.org/docs/current/developer-docs/backend/rust/generating-candid)
 ic_cdk::export_candid!();

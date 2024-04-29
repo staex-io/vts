@@ -9,5 +9,6 @@ type UploadFirmwareRequest = record {
 service : {
   create_agreement : (text, principal, text, text) -> (Result);
   request_firmware : () -> (Result_1);
+  sign_agreement : (text) -> (Result_1);
   upload_firmware : (UploadFirmwareRequest) -> (Result_1);
 }
