@@ -116,7 +116,8 @@ fn create_agreement(
     daily_usage_fee: String,
     gas_price: String,
 ) -> VTSResult<u128> {
-
+    let caller = ic_cdk::api::caller();
+    ic_cdk::println!("requested agreement creation by {}", caller);
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
 
@@ -125,7 +126,7 @@ fn create_agreement(
 
         let agreement = Agreement {
             name,
-            vh_provider: ic_cdk::api::caller(),
+            vh_provider: caller,
             vh_customer,
             state: AgreementState::Unsigned,
             conditions: AgreementConditions {
