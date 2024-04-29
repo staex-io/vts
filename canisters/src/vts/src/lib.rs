@@ -99,16 +99,6 @@ fn upload_firmware(req: UploadFirmwareRequest) -> VTSResult<()> {
     Ok(())
 }
 
-#[derive(CandidType, Deserialize, Debug)]
-pub struct Provider {
-    pub agreements: Vec<u128>,
-}
-
-#[derive(CandidType, Deserialize, Debug)]
-pub struct Customer {
-    pub agreements: Vec<u128>,
-}
-
 #[ic_cdk::update]
 fn create_agreement(
     name: String,
@@ -120,6 +110,14 @@ fn create_agreement(
     ic_cdk::println!("requested agreement creation by {}", caller);
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
+
+        if agreements.iter().any(|(_, agreement)| {
+            agreement.name == name && agreement.vh_customer == vh_customer &&
+            agreement.conditions.daily_usage_fee == daily_usage_fee &&
+            agreement.conditions.gas_price == gas_price
+        }) {
+            return Err(Error::AlreadyExists);
+        }
 
         let mut next_agreement_id = agreements.len() as u128;
         next_agreement_id += 1;

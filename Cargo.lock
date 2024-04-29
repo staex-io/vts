@@ -1837,7 +1837,6 @@ dependencies = [
  "candid",
  "ic-agent",
  "ic-cdk",
- "ic-cdk-macros",
  "ic-stable-structures",
  "rust_decimal",
  "serde",

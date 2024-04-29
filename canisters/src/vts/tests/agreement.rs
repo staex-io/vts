@@ -21,10 +21,9 @@ async fn test_create_agreement() {
             .unwrap();
     assert!(agreement_id_first > 0, "First agreement ID should be positive");
 
-    // let result =
-    //     create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
-    //         .await;
-    // assert!(result.is_err(), "Should return error on duplicate agreement");
+    let result = 
+    create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price).await;
+    assert!(result.is_err(), "Should return error on duplicate agreement");
 }
 
 async fn create_agreement(
