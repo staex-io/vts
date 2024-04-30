@@ -1,6 +1,6 @@
 use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
-use vts::VTSResult;
+use vts::{Error, VTSResult};
 
 use crate::agent::init_agent;
 
@@ -44,8 +44,8 @@ async fn test_sign_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
 
-    let result = sign_agreement(&agent, &canister_id, &nonexistent_agreement_id).await;
-    assert!(result.is_err(), "Should fail to sign a nonexistent agreement");
+    let result = sign_agreement(&agent, &canister_id, &nonexistent_agreement_id).await.unwrap_err();
+    assert_eq!(Error::NotFound, result);
 }
 
 #[tokio::test]
@@ -64,8 +64,8 @@ async fn test_sign_agreement_twice() {
     let result_first = sign_agreement(&agent, &canister_id, &agreement_id).await;
     assert!(result_first.is_ok(), "Should successfully sign the agreement the first time");
 
-    let result_second = sign_agreement(&agent, &canister_id, &agreement_id).await;
-    assert!(result_second.is_err(), "Should fail to sign the agreement a second time");
+    let result_second = sign_agreement(&agent, &canister_id, &agreement_id).await.unwrap_err();
+    assert_eq!(Error::AlreadyExists, result_second);
 }
 
 async fn create_agreement(

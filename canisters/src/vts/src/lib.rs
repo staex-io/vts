@@ -159,7 +159,7 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
             }
 
             match agreement.state {
-                AgreementState::Signed => return Err(Error::AlreadyExists),
+                AgreementState::Signed => Err(Error::AlreadyExists),
                 _ => {
                     agreement.state = AgreementState::Signed;
                     agreements.insert(agreement_id, agreement);
