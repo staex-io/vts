@@ -1,13 +1,10 @@
-use candid::{CandidType, Decode, Encode, Principal};
+use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
 use vts::{Error, UploadFirmwareRequest, VTSResult};
 
 use crate::agent::init_agent;
 
 mod agent;
-
-#[derive(CandidType)]
-struct RequestFirmwareRequest {}
 
 #[tokio::test]
 async fn test_firmware() {
@@ -35,7 +32,7 @@ async fn request_firmware(agent: &Agent, canister_id: Principal) -> VTSResult<()
     let res = agent
         .update(&canister_id, "request_firmware")
         .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&RequestFirmwareRequest {}).unwrap())
+        .with_arg(Encode!(&()).unwrap())
         .call_and_wait()
         .await
         .unwrap();

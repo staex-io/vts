@@ -2,9 +2,13 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export type Error = { 'Internal' : null } |
+export type Error = { 'InvalidSigner' : null } |
+  { 'Internal' : null } |
+  { 'NotFound' : null } |
   { 'AlreadyExists' : null };
-export type Result = { 'Ok' : null } |
+export type Result = { 'Ok' : bigint } |
+  { 'Err' : Error };
+export type Result_1 = { 'Ok' : null } |
   { 'Err' : Error };
 export interface UploadFirmwareRequest {
   'principal' : string,
@@ -12,8 +16,10 @@ export interface UploadFirmwareRequest {
   '_arch' : string,
 }
 export interface _SERVICE {
-  'request_firmware' : ActorMethod<[], Result>,
-  'upload_firmware' : ActorMethod<[UploadFirmwareRequest], Result>,
+  'create_agreement' : ActorMethod<[string, Principal, string, string], Result>,
+  'request_firmware' : ActorMethod<[], Result_1>,
+  'sign_agreement' : ActorMethod<[bigint], Result_1>,
+  'upload_firmware' : ActorMethod<[UploadFirmwareRequest], Result_1>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

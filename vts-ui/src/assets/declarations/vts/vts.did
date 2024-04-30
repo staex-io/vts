@@ -1,11 +1,14 @@
-type Error = variant { Internal; AlreadyExists };
-type Result = variant { Ok; Err : Error };
+type Error = variant { InvalidSigner; Internal; NotFound; AlreadyExists };
+type Result = variant { Ok : nat; Err : Error };
+type Result_1 = variant { Ok; Err : Error };
 type UploadFirmwareRequest = record {
   "principal" : text;
   _firmware : blob;
   _arch : text;
 };
 service : {
-  request_firmware : () -> (Result);
-  upload_firmware : (UploadFirmwareRequest) -> (Result);
+  create_agreement : (text, principal, text, text) -> (Result);
+  request_firmware : () -> (Result_1);
+  sign_agreement : (nat) -> (Result_1);
+  upload_firmware : (UploadFirmwareRequest) -> (Result_1);
 }
