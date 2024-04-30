@@ -69,6 +69,8 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
         )
     );
+
+    static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
 }
 
 #[ic_cdk::update]
@@ -111,8 +113,11 @@ fn create_agreement(
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
 
-        let mut next_agreement_id = agreements.len() as u128;
-        next_agreement_id += 1;
+        let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
+            let mut counter = counter.borrow_mut();
+            *counter += 1;
+            *counter
+        });
 
         let agreement = Agreement {
             name,
