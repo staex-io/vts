@@ -12,6 +12,8 @@ pub enum Error {
     #[default]
     Internal,
     AlreadyExists,
+    NotFound,
+    InvalidSigner,
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -135,6 +137,33 @@ fn create_agreement(
         agreements.insert(next_agreement_id, agreement);
 
         Ok(next_agreement_id)
+    })
+}
+
+#[ic_cdk::update]
+fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ic_cdk::println!("requested agreement signing by {}", caller);
+
+    AGREEMENTS.with(|agreements| {
+        let mut agreements = agreements.borrow_mut();
+
+        if let Some(mut agreement) = agreements.get(&agreement_id) {
+            if agreement.vh_customer != caller {
+                return Err(Error::InvalidSigner);
+            }
+
+            match agreement.state {
+                AgreementState::Signed => Err(Error::AlreadyExists),
+                _ => {
+                    agreement.state = AgreementState::Signed;
+                    agreements.insert(agreement_id, agreement);
+                    Ok(())
+                }
+            }
+        } else {
+            Err(Error::NotFound)
+        }
     })
 }
 

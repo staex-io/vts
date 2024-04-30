@@ -1,6 +1,8 @@
 export const idlFactory = ({ IDL }) => {
   const Error = IDL.Variant({
+    'InvalidSigner' : IDL.Null,
     'Internal' : IDL.Null,
+    'NotFound' : IDL.Null,
     'AlreadyExists' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
@@ -17,6 +19,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'request_firmware' : IDL.Func([], [Result_1], []),
+    'sign_agreement' : IDL.Func([IDL.Nat], [Result_1], []),
     'upload_firmware' : IDL.Func([UploadFirmwareRequest], [Result_1], []),
   });
 };
