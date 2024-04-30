@@ -20,10 +20,27 @@ async fn test_create_agreement() {
             .await
             .unwrap();
     assert!(agreement_id_first > 0, "First agreement ID should be positive");
+}
 
-    let result = 
-    create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price).await;
-    assert!(result.is_err(), "Should return error on duplicate agreement");
+#[tokio::test]
+async fn test_create_duplicate_agreements() {
+    let (agent, canister_id) = init_agent().await;
+    let vh_customer = agent.get_principal().unwrap();
+    let name = "Test Agreement".to_string();
+    let daily_usage_fee = "100".to_string();
+    let gas_price = "10".to_string();
+
+    let agreement_id1 =
+        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+            .await
+            .unwrap();
+
+    let agreement_id2 =
+        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+            .await
+            .unwrap();
+
+    assert_ne!(agreement_id1, agreement_id2, "Agreement IDs should be different");
 }
 
 async fn create_agreement(

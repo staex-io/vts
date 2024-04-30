@@ -111,14 +111,6 @@ fn create_agreement(
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
 
-        if agreements.iter().any(|(_, agreement)| {
-            agreement.name == name && agreement.vh_customer == vh_customer &&
-            agreement.conditions.daily_usage_fee == daily_usage_fee &&
-            agreement.conditions.gas_price == gas_price
-        }) {
-            return Err(Error::AlreadyExists);
-        }
-
         let mut next_agreement_id = agreements.len() as u128;
         next_agreement_id += 1;
 
