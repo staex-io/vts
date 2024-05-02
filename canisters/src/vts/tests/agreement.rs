@@ -96,7 +96,7 @@ async fn test_link_vehicle_to_agreement_success() {
     let name = "Test Agreement".to_string();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
-    let vehicle_public_key = "1234567890".to_string();
+    let vehicle_public_key = Principal::anonymous();
 
     let agreement_id =
         create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
@@ -112,7 +112,7 @@ async fn test_link_vehicle_to_agreement_success() {
 async fn test_link_vehicle_to_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
-    let vehicle_public_key = "1234567890".to_string();
+    let vehicle_public_key = Principal::anonymous();
 
     let result = link_vehicle_to_agreement(
         &agent,
@@ -170,12 +170,12 @@ async fn link_vehicle_to_agreement(
     agent: &Agent,
     canister_id: &Principal,
     agreement_id: &u128,
-    vehicle_public_key: &str,
+    vehicle_public_key: &Principal,
 ) -> VTSResult<()> {
     let response = agent
         .update(canister_id, "link_vehicle_to_agreement")
         .with_effective_canister_id(*canister_id)
-        .with_arg(Encode!(&agreement_id, &vehicle_public_key.to_string()).unwrap())
+        .with_arg(Encode!(&agreement_id, &vehicle_public_key).unwrap())
         .call_and_wait()
         .await
         .unwrap();

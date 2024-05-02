@@ -25,7 +25,7 @@ pub struct Agreement {
     pub vh_customer: Principal,
     pub state: AgreementState,
     pub conditions: AgreementConditions,
-    pub vehicles: Vec<u128>,
+    pub vehicles: Vec<Principal>,
 }
 
 impl Storable for Agreement {
@@ -92,7 +92,7 @@ thread_local! {
 
     static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
 
-    static VEHICLES: RefCell<StableBTreeMap<String, Vehicle, Memory>> = RefCell::new(
+    static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
         )
@@ -192,7 +192,7 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: String) -> VTSResult<()> {
+fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
 
     ic_cdk::println!("requested vehicle linking by {}", caller);
@@ -205,20 +205,17 @@ fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: String) -> 
                 return Err(Error::InvalidSigner);
             }
 
-            let vehicle_public_key_u128 =
-                vehicle_public_key.parse::<u128>().map_err(|_| Error::Internal)?;
-
-            if agreement.vehicles.contains(&vehicle_public_key_u128) {
+            if agreement.vehicles.contains(&vehicle_public_key) {
                 return Err(Error::AlreadyExists);
             }
 
             let vehicle = Vehicle {};
             VEHICLES.with(|vehicles| {
                 let mut vehicles = vehicles.borrow_mut();
-                vehicles.insert(vehicle_public_key.clone(), vehicle);
+                vehicles.insert(vehicle_public_key, vehicle);
             });
 
-            agreement.vehicles.push(vehicle_public_key_u128);
+            agreement.vehicles.push(vehicle_public_key);
             agreements.insert(agreement_id, agreement);
 
             Ok(())
