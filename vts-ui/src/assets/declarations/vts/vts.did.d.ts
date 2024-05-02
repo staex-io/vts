@@ -17,6 +17,7 @@ export interface UploadFirmwareRequest {
 }
 export interface _SERVICE {
   'create_agreement' : ActorMethod<[string, Principal, string, string], Result>,
+  'link_vehicle_to_agreement' : ActorMethod<[bigint, Principal], Result_1>,
   'request_firmware' : ActorMethod<[], Result_1>,
   'sign_agreement' : ActorMethod<[bigint], Result_1>,
   'upload_firmware' : ActorMethod<[UploadFirmwareRequest], Result_1>,

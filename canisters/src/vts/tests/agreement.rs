@@ -89,6 +89,42 @@ async fn test_create_duplicate_agreements() {
     assert_ne!(agreement_id1, agreement_id2, "Agreement IDs should be different");
 }
 
+#[tokio::test]
+async fn test_link_vehicle_to_agreement_success() {
+    let (agent, canister_id) = init_agent().await;
+    let vh_customer = agent.get_principal().unwrap();
+    let name = "Test Agreement".to_string();
+    let daily_usage_fee = "100".to_string();
+    let gas_price = "10".to_string();
+    let vehicle_public_key = Principal::anonymous();
+
+    let agreement_id =
+        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+            .await
+            .unwrap();
+
+    let result =
+        link_vehicle_to_agreement(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
+    assert!(result.is_ok(), "Should successfully link the vehicle to the agreement");
+}
+
+#[tokio::test]
+async fn test_link_vehicle_to_nonexistent_agreement() {
+    let (agent, canister_id) = init_agent().await;
+    let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
+    let vehicle_public_key = Principal::anonymous();
+
+    let result = link_vehicle_to_agreement(
+        &agent,
+        &canister_id,
+        &nonexistent_agreement_id,
+        &vehicle_public_key,
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(Error::NotFound, result);
+}
+
 async fn create_agreement(
     agent: &Agent,
     canister_id: &Principal,
@@ -124,6 +160,22 @@ async fn sign_agreement(
         .update(canister_id, "sign_agreement")
         .with_effective_canister_id(*canister_id)
         .with_arg(Encode!(&agreement_id).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+    Decode!(response.as_slice(), VTSResult<()>).unwrap()
+}
+
+async fn link_vehicle_to_agreement(
+    agent: &Agent,
+    canister_id: &Principal,
+    agreement_id: &u128,
+    vehicle_public_key: &Principal,
+) -> VTSResult<()> {
+    let response = agent
+        .update(canister_id, "link_vehicle_to_agreement")
+        .with_effective_canister_id(*canister_id)
+        .with_arg(Encode!(&agreement_id, &vehicle_public_key).unwrap())
         .call_and_wait()
         .await
         .unwrap();

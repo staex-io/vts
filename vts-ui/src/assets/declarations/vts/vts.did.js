@@ -18,6 +18,11 @@ export const idlFactory = ({ IDL }) => {
         [Result],
         [],
       ),
+    'link_vehicle_to_agreement' : IDL.Func(
+        [IDL.Nat, IDL.Principal],
+        [Result_1],
+        [],
+      ),
     'request_firmware' : IDL.Func([], [Result_1], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result_1], []),
     'upload_firmware' : IDL.Func([UploadFirmwareRequest], [Result_1], []),
