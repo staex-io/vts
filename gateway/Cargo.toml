@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+log = { version = "0.4.21", features = [], default-features = false }
+env_logger = { version = "0.11.3", features = ["auto-color", "humantime"], default-features = false }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "signal", "time", "sync"], default-features = false }
