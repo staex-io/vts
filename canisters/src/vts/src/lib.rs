@@ -225,5 +225,18 @@ fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: Principal) 
     })
 }
 
+#[ic_cdk::query]
+fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<Vec<Principal>> {
+    AGREEMENTS.with(|agreements| {
+        let agreements = agreements.borrow();
+
+        if let Some(agreement) = agreements.get(&agreement_id) {
+            Ok(agreement.vehicles.clone())
+        } else {
+            Err(Error::NotFound)
+        }
+    })
+}
+
 // Enable Candid export (see https://internetcomputer.org/docs/current/developer-docs/backend/rust/generating-candid)
 ic_cdk::export_candid!();

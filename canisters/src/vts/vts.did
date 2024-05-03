@@ -1,6 +1,7 @@
 type Error = variant { InvalidSigner; Internal; NotFound; AlreadyExists };
 type Result = variant { Ok : nat; Err : Error };
-type Result_1 = variant { Ok; Err : Error };
+type Result_1 = variant { Ok : vec principal; Err : Error };
+type Result_2 = variant { Ok; Err : Error };
 type UploadFirmwareRequest = record {
   "principal" : text;
   _firmware : blob;
@@ -8,8 +9,9 @@ type UploadFirmwareRequest = record {
 };
 service : {
   create_agreement : (text, principal, text, text) -> (Result);
-  link_vehicle_to_agreement : (nat, principal) -> (Result_1);
-  request_firmware : () -> (Result_1);
-  sign_agreement : (nat) -> (Result_1);
-  upload_firmware : (UploadFirmwareRequest) -> (Result_1);
+  get_vehicles_by_agreement : (nat) -> (Result_1) query;
+  link_vehicle_to_agreement : (nat, principal) -> (Result_2);
+  request_firmware : () -> (Result_2);
+  sign_agreement : (nat) -> (Result_2);
+  upload_firmware : (UploadFirmwareRequest) -> (Result_2);
 }
