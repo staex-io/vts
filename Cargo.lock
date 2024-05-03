@@ -528,6 +528,10 @@ dependencies = [
 [[package]]
 name = "firmware"
 version = "0.1.0"
+dependencies = [
+ "ic-agent",
+ "k256",
+]
 
 [[package]]
 name = "fnv"
@@ -612,7 +616,9 @@ dependencies = [
  "candid",
  "env_logger",
  "ic-agent",
+ "k256",
  "log",
+ "rand",
  "serde",
  "serde_json",
  "tokio",

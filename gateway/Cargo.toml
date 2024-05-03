@@ -12,3 +12,5 @@ serde = { version = "1.0.200", features = [], default-features = false }
 serde_json = { version = "1.0.116", features = [], default-features = false }
 ic-agent = { version = "0.34.0", features = [], default-features = true }
 candid = { version = "0.10.7", features = [], default-features = false }
+k256 = { version = "0.13.3", features = [], default-features = false }
+rand = { version = "0.8.5", features = [], default-features = false }

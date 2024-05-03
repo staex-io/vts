@@ -77,6 +77,17 @@ async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
 async fn check_firmware_requests() -> Res<()> {
     let (agent, canister_id) = init_agent().await?;
     let principal = get_firmware_request(&agent, canister_id).await?;
+    let mut rng_code = rand::thread_rng();
+    let secret_key = k256::SecretKey::random(&mut rng_code);
+    std::fs::write("../firmware/secret_key", secret_key.to_bytes())?;
+    let output = std::process::Command::new("cargo")
+        .args(vec!["build"])
+        .current_dir("../firmware")
+        .output()?;
+    if !output.status.success() {
+        return Err("build firmware error".into());
+    }
+    // todo: upload built binary to canister
     debug!("new firmware request: {:?}", principal);
     Ok(())
 }
