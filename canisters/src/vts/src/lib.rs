@@ -5,6 +5,28 @@ use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use std::borrow::Cow;
 use std::cell::RefCell;
 
+thread_local! {
+    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
+        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
+
+    static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
+
+    static FIRMWARE_REQUESTS: RefCell<StableBTreeMap<Principal, (), Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
+    );
+
+    static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
+    );
+
+    static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
+}
+
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 #[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
@@ -73,49 +95,32 @@ impl Storable for Vehicle {
     }
 }
 
-thread_local! {
-    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
-        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
-
-    // Principal public key as a map key.
-    static FIRMWARE_REQUESTS: RefCell<StableBTreeMap<String, (), Memory>> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
-        )
-    );
-
-    static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
-        )
-    );
-
-    static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
-
-    static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
-        )
-    );
-}
-
 #[ic_cdk::update]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("{} is requested firmware", caller);
     FIRMWARE_REQUESTS.with(|requests| {
-        if requests.borrow_mut().contains_key(&caller.to_string()) {
+        if requests.borrow_mut().contains_key(&caller) {
             return Err(Error::AlreadyExists);
         }
-        requests.borrow_mut().insert(caller.to_string(), ());
+        requests.borrow_mut().insert(caller, ());
         Ok(())
     })?;
     Ok(())
 }
 
+// This method can return first available firmware request.
+#[ic_cdk::update]
+fn get_firmware_requests() -> VTSResult<Principal> {
+    // todo: this canister method should be executed only by our gateway.
+    let (principal, _) = FIRMWARE_REQUESTS
+        .with(|requests| requests.borrow_mut().first_key_value().ok_or(Error::NotFound))?;
+    Ok(principal)
+}
+
 #[derive(CandidType, Deserialize, Debug)]
 pub struct UploadFirmwareRequest {
-    pub principal: String,
+    pub principal: Principal,
     pub _firmware: Vec<u8>,
     pub _arch: String,
 }
@@ -137,8 +142,6 @@ fn create_agreement(
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
     AGREEMENTS.with(|agreements| {
-        let mut agreements = agreements.borrow_mut();
-
         let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
             let mut counter = counter.borrow_mut();
             *counter += 1;
@@ -151,13 +154,13 @@ fn create_agreement(
             vh_customer,
             state: AgreementState::Unsigned,
             conditions: AgreementConditions {
-                // TODO: use decimals to verify money parameters
+                // todo: use decimals library to verify money parameters
                 daily_usage_fee,
                 gas_price,
             },
             vehicles: vec![],
         };
-
+        let mut agreements = agreements.borrow_mut();
         agreements.insert(next_agreement_id, agreement);
 
         Ok(next_agreement_id)
@@ -192,9 +195,8 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: Principal) -> VTSResult<()> {
+fn link_vehicle(agreement_id: u128, vehicle_public_key: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
-
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
     AGREEMENTS.with(|agreements| {
@@ -229,7 +231,6 @@ fn link_vehicle_to_agreement(agreement_id: u128, vehicle_public_key: Principal) 
 fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<Vec<Principal>> {
     AGREEMENTS.with(|agreements| {
         let agreements = agreements.borrow();
-
         if let Some(agreement) = agreements.get(&agreement_id) {
             Ok(agreement.vehicles.clone())
         } else {

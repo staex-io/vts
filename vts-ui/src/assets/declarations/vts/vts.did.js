@@ -6,13 +6,14 @@ export const idlFactory = ({ IDL }) => {
     'AlreadyExists' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
-  const Result_1 = IDL.Variant({
+  const Result_1 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
+  const Result_2 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Principal),
     'Err' : Error,
   });
-  const Result_2 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
+  const Result_3 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const UploadFirmwareRequest = IDL.Record({
-    'principal' : IDL.Text,
+    'principal' : IDL.Principal,
     '_firmware' : IDL.Vec(IDL.Nat8),
     '_arch' : IDL.Text,
   });
@@ -22,15 +23,12 @@ export const idlFactory = ({ IDL }) => {
         [Result],
         [],
       ),
-    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_1], ['query']),
-    'link_vehicle_to_agreement' : IDL.Func(
-        [IDL.Nat, IDL.Principal],
-        [Result_2],
-        [],
-      ),
-    'request_firmware' : IDL.Func([], [Result_2], []),
-    'sign_agreement' : IDL.Func([IDL.Nat], [Result_2], []),
-    'upload_firmware' : IDL.Func([UploadFirmwareRequest], [Result_2], []),
+    'get_firmware_requests' : IDL.Func([], [Result_1], []),
+    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_2], ['query']),
+    'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result_3], []),
+    'request_firmware' : IDL.Func([], [Result_3], []),
+    'sign_agreement' : IDL.Func([IDL.Nat], [Result_3], []),
+    'upload_firmware' : IDL.Func([UploadFirmwareRequest], [Result_3], []),
   });
 };
 export const init = ({ IDL }) => { return []; };

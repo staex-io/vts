@@ -45,7 +45,7 @@ async fn upload_firmware(agent: &Agent, canister_id: Principal) -> VTSResult<()>
         .with_effective_canister_id(canister_id)
         .with_arg(
             Encode!(&UploadFirmwareRequest {
-                principal: agent.get_principal().unwrap().to_string(),
+                principal: agent.get_principal().unwrap(),
                 _firmware: vec![0, 1, 2],
                 _arch: "arm64".to_string(),
             })
