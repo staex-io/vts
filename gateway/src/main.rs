@@ -1,7 +1,7 @@
 use std::{fmt::Debug, time::Duration};
 
 use candid::{Decode, Encode};
-use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent};
+use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent, Identity};
 use log::{debug, error, info, trace, LevelFilter};
 use serde::Deserialize;
 use tokio::{
@@ -76,17 +76,25 @@ async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
 
 async fn check_firmware_requests() -> Res<()> {
     let (agent, canister_id) = init_agent().await?;
-    let principal = get_firmware_request(&agent, canister_id).await?;
-    let mut rng_code = rand::thread_rng();
-    let secret_key = k256::SecretKey::random(&mut rng_code);
+    let vh_customer = match get_firmware_request(&agent, canister_id).await? {
+        Some(principal) => principal,
+        None => {
+            debug!("now active firmware requests to build new firmware");
+            return Ok(());
+        }
+    };
+    debug!("new firmware request: {vh_customer}, building new firmware");
+    let secret_key = k256::SecretKey::random(&mut rand::thread_rng());
     std::fs::write("../firmware/secret_key", secret_key.to_bytes())?;
     let output =
         std::process::Command::new("cargo").args(vec!["build"]).current_dir("../firmware").output()?;
     if !output.status.success() {
         return Err("build firmware error".into());
     }
-    // todo: upload built binary to canister
-    debug!("new firmware request: {:?}", principal);
+    let firmware = std::fs::read("../target/debug/firmware")?;
+    let vehicle = Secp256k1Identity::from_private_key(secret_key.clone());
+    upload_firmware(&agent, canister_id, vh_customer, vehicle.sender()?, firmware).await?;
+    debug!("successfully uploaded new firmware for {vh_customer}");
     Ok(())
 }
 
@@ -113,4 +121,20 @@ async fn get_firmware_request(agent: &Agent, canister_id: Principal) -> Res<Opti
         Err(vts::Error::NotFound) => Ok(None),
         Err(_) => Err("failed to decode response".to_string().into()),
     }
+}
+
+async fn upload_firmware(
+    agent: &Agent,
+    canister_id: Principal,
+    vh_customer: Principal,
+    vehicle: Principal,
+    firmware: Vec<u8>,
+) -> Res<()> {
+    let res = agent
+        .update(&canister_id, "upload_firmware")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&vh_customer, &vehicle, &std::env::consts::ARCH.to_string(), &firmware)?)
+        .call_and_wait()
+        .await?;
+    Ok(Decode!(res.as_slice(), VTSResult<()>)?.map_err(|_| "failed to upload firmware".to_string())?)
 }

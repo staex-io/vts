@@ -4,8 +4,9 @@ import { initVTSClient } from '@/icp'
 export default {
   data() {
     return {
-      fetchActiveLoader: false,
-      activeText: '',
+      fetchUserLoader: false,
+      activeRequestText: '',
+      vehicles: [],
 
       requestNewLoader: false,
 
@@ -14,13 +15,19 @@ export default {
     }
   },
   async beforeMount() {
-    this.fetchActiveLoader = true
+    this.fetchUserLoader = true
+
     const vtsClient = await initVTSClient()
-    let requests = await vtsClient.get_firmware_requests_by_user()
+
+    const requests = await vtsClient.get_firmware_requests_by_user()
     if (requests.Ok === null)
-      this.activeText =
+      this.activeRequestText =
         'You have active firmware request. Please wait while Staex gateway is build new firmware.'
-    this.fetchActiveLoader = false
+
+    const user = await vtsClient.get_user()
+    if (user.Ok !== undefined) this.vehicles = user.Ok.vehicles
+
+    this.fetchUserLoader = false
   },
   methods: {
     cleanState() {
@@ -47,7 +54,7 @@ export default {
 <template>
   <h1>Firmwares</h1>
   <div
-    v-if="fetchActiveLoader"
+    v-if="fetchUserLoader"
     class="warning alert loader-container"
   >
     <div class="loader" />
@@ -55,12 +62,13 @@ export default {
   </div>
   <div>
     <p
-      v-if="activeText !== ''"
+      v-if="activeRequestText !== ''"
       class="warning alert"
     >
-      {{ activeText }}
+      {{ activeRequestText }}
     </p>
   </div>
+
   <button
     type="button"
     @click="request"
@@ -71,6 +79,30 @@ export default {
       class="loader"
     />
   </button>
+
+  <div v-if="!fetchUserLoader && vehicles.length">
+    <h2>Available firmwares</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Internet Identity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="[principal, _] in vehicles"
+          :key="principal"
+          class="mouse-pointer"
+        >
+          <td>{{ principal }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p v-else>
+    There are no vehicles at the moment.
+  </p>
+
   <div
     v-if="successText !== ''"
     class="success alert"
@@ -88,5 +120,13 @@ export default {
 <style scoped>
 .alert {
   margin: 20px 0 20px 0;
+}
+
+button {
+  margin-bottom: 25px;
+}
+
+h2 {
+  margin-bottom: 25px;
 }
 </style>

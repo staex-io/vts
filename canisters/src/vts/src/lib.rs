@@ -80,7 +80,7 @@ impl_storable!(User);
 #[derive(CandidType, Deserialize, Debug)]
 struct Vehicle {
     // Vehicle public key.
-    principal: Principal,
+    identity: Principal,
     arch: String,
     firmware: Vec<u8>,
 }
@@ -103,6 +103,12 @@ struct AgreementConditions {
     gas_price: String,
 }
 
+#[ic_cdk::query]
+fn get_user() -> VTSResult<User> {
+    let caller = ic_cdk::api::caller();
+    USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))
+}
+
 #[ic_cdk::update]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
@@ -118,25 +124,25 @@ fn request_firmware() -> VTSResult<()> {
 }
 
 // This method can return first available firmware request.
-#[ic_cdk::update]
+#[ic_cdk::query]
 fn get_firmware_requests() -> VTSResult<Principal> {
     // todo: this canister method should be executed only by our gateway.
-    let (principal, _) =
-        FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().first_key_value().ok_or(Error::NotFound))?;
-    Ok(principal)
+    let (identity, _) =
+        FIRMWARE_REQUESTS.with(|requests| requests.borrow().first_key_value().ok_or(Error::NotFound))?;
+    Ok(identity)
 }
 
-#[ic_cdk::update]
+#[ic_cdk::query]
 fn get_firmware_requests_by_user() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
-    FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().get(&caller).ok_or(Error::NotFound))?;
+    FIRMWARE_REQUESTS.with(|requests| requests.borrow().get(&caller).ok_or(Error::NotFound))?;
     Ok(())
 }
 
 #[ic_cdk::update]
 fn upload_firmware(
     vh_customer: Principal,
-    principal: Principal,
+    vehicle: Principal,
     arch: String,
     firmware: Vec<u8>,
 ) -> VTSResult<()> {
@@ -144,9 +150,9 @@ fn upload_firmware(
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&vh_customer));
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
-            principal,
+            vehicle,
             Vehicle {
-                principal,
+                identity: vehicle,
                 arch,
                 firmware,
             },
@@ -156,14 +162,14 @@ fn upload_firmware(
         let user = users.borrow_mut().get(&vh_customer);
         match user {
             Some(mut user) => {
-                user.vehicles.insert(principal, ());
+                user.vehicles.insert(vehicle, ());
                 users.borrow_mut().insert(vh_customer, user);
             }
             None => {
                 users.borrow_mut().insert(
                     vh_customer,
                     User {
-                        vehicles: HashMap::from_iter(vec![(principal, ())]),
+                        vehicles: HashMap::from_iter(vec![(vehicle, ())]),
                     },
                 );
             }
