@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { initAuthClient } from '@/icp'
 
 import FirmwaresView from '@/views/FirmwaresView.vue'
+import AgreementsView from '@/views/AgreementsView.vue'
+import CreateAgreementView from '@/views/CreateAgreementView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +17,16 @@ const router = createRouter({
       path: '/firmwares/',
       name: 'firmwares',
       component: FirmwaresView,
+    },
+    {
+      path: '/agreements/',
+      name: 'agreements',
+      component: AgreementsView,
+    },
+    {
+      path: '/agreements/create',
+      name: 'createAgreement',
+      component: CreateAgreementView,
     },
   ],
 })

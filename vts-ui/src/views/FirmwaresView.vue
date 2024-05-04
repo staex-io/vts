@@ -93,6 +93,7 @@ export default {
 
   <button
     type="button"
+    style="margin-bottom: 25px"
     @click="request"
   >
     <span v-if="!requestNewLoader">Request new firmware</span>
@@ -103,23 +104,32 @@ export default {
   </button>
 
   <div v-if="!fetchUserLoader && vehicles.length">
-    <h2>Available firmwares</h2>
+    <h2 style="margin-bottom: 25px">
+      Available firmwares
+    </h2>
     <table>
       <thead>
         <tr>
           <th>Internet Identity</th>
           <th>Arch</th>
+          <th />
         </tr>
       </thead>
       <tbody>
         <tr
           v-for="{ identity, arch, firmware } in vehicles"
           :key="identity"
-          class="mouse-pointer"
-          @click="() => downloadFirmware(identity, arch, firmware)"
         >
           <td>{{ identity.toString() }}</td>
           <td>{{ arch }}</td>
+          <td style="text-align: center">
+            <button
+              class="download-btn"
+              @click="() => downloadFirmware(identity, arch, firmware)"
+            >
+              Download
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -147,11 +157,12 @@ export default {
   margin: 20px 0 20px 0;
 }
 
-button {
-  margin-bottom: 25px;
+.download-btn {
+  margin: 5px;
+  padding: 2px 25px 2px 25px;
 }
 
-h2 {
-  margin-bottom: 25px;
+.download-btn:hover {
+  background-color: black;
 }
 </style>
