@@ -10,23 +10,22 @@ export type Result = { 'Ok' : bigint } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : Principal } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : Array<Principal> } |
+export type Result_2 = { 'Ok' : null } |
   { 'Err' : Error };
-export type Result_3 = { 'Ok' : null } |
+export type Result_3 = { 'Ok' : Array<[Principal, null]> } |
   { 'Err' : Error };
-export interface UploadFirmwareRequest {
-  'principal' : Principal,
-  '_firmware' : Uint8Array | number[],
-  '_arch' : string,
-}
 export interface _SERVICE {
   'create_agreement' : ActorMethod<[string, Principal, string, string], Result>,
   'get_firmware_requests' : ActorMethod<[], Result_1>,
-  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_2>,
-  'link_vehicle' : ActorMethod<[bigint, Principal], Result_3>,
-  'request_firmware' : ActorMethod<[], Result_3>,
-  'sign_agreement' : ActorMethod<[bigint], Result_3>,
-  'upload_firmware' : ActorMethod<[UploadFirmwareRequest], Result_3>,
+  'get_firmware_requests_by_user' : ActorMethod<[], Result_2>,
+  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_3>,
+  'link_vehicle' : ActorMethod<[bigint, Principal], Result_2>,
+  'request_firmware' : ActorMethod<[], Result_2>,
+  'sign_agreement' : ActorMethod<[bigint], Result_2>,
+  'upload_firmware' : ActorMethod<
+    [Principal, Principal, string, Uint8Array | number[]],
+    Result_2
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

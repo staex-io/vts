@@ -80,10 +80,8 @@ async fn check_firmware_requests() -> Res<()> {
     let mut rng_code = rand::thread_rng();
     let secret_key = k256::SecretKey::random(&mut rng_code);
     std::fs::write("../firmware/secret_key", secret_key.to_bytes())?;
-    let output = std::process::Command::new("cargo")
-        .args(vec!["build"])
-        .current_dir("../firmware")
-        .output()?;
+    let output =
+        std::process::Command::new("cargo").args(vec!["build"]).current_dir("../firmware").output()?;
     if !output.status.success() {
         return Err("build firmware error".into());
     }
@@ -94,12 +92,10 @@ async fn check_firmware_requests() -> Res<()> {
 
 async fn init_agent() -> Res<(Agent, Principal)> {
     let identity = Secp256k1Identity::from_pem_file("../canisters/identity.pem")?;
-    let agent =
-        Agent::builder().with_url("http://127.0.0.1:7777").with_identity(identity).build()?;
+    let agent = Agent::builder().with_url("http://127.0.0.1:7777").with_identity(identity).build()?;
     agent.fetch_root_key().await?;
-    let canisters_ids: CanisterIds = serde_json::from_str(&std::fs::read_to_string(
-        "../canisters/.dfx/local/canister_ids.json",
-    )?)?;
+    let canisters_ids: CanisterIds =
+        serde_json::from_str(&std::fs::read_to_string("../canisters/.dfx/local/canister_ids.json")?)?;
     let canister_id = Principal::from_text(canisters_ids.vts.local)?;
     Ok((agent, canister_id))
 }

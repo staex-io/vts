@@ -4,6 +4,26 @@ use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::collections::HashMap;
+
+macro_rules! impl_storable {
+    ($struct_name:ident) => {
+        impl Storable for $struct_name {
+            const BOUND: Bound = Bound::Bounded {
+                max_size: u32::MAX,
+                is_fixed_size: false,
+            };
+
+            fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+                Decode!(bytes.as_ref(), Self).unwrap()
+            }
+
+            fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+                Cow::Owned(Encode!(self).unwrap())
+            }
+        }
+    };
+}
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
@@ -16,7 +36,7 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
     );
 
-    static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
+    static USERS: RefCell<StableBTreeMap<Principal, User, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
     );
@@ -25,9 +45,16 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
+
+    static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
+    );
 }
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
+
+pub type VTSResult<T> = Result<T, Error>;
 
 #[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
@@ -38,61 +65,42 @@ pub enum Error {
     InvalidSigner,
 }
 
-pub type VTSResult<T> = Result<T, Error>;
-
 #[derive(CandidType, Deserialize, Debug)]
-pub struct Agreement {
-    pub name: String,
-    pub vh_provider: Principal,
-    pub vh_customer: Principal,
-    pub state: AgreementState,
-    pub conditions: AgreementConditions,
-    pub vehicles: Vec<Principal>,
-}
-
-impl Storable for Agreement {
-    const BOUND: Bound = Bound::Bounded {
-        max_size: u32::MAX,
-        is_fixed_size: false,
-    };
-
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        Decode!(bytes.as_ref(), Self).unwrap()
-    }
-
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
-        Cow::Owned(Encode!(self).unwrap())
-    }
-}
-
-#[derive(CandidType, Deserialize, Debug)]
-pub enum AgreementState {
+enum AgreementState {
     Unsigned,
     Signed,
 }
 
 #[derive(CandidType, Deserialize, Debug)]
-pub struct AgreementConditions {
-    pub daily_usage_fee: String,
-    pub gas_price: String,
+struct User {
+    vehicles: HashMap<Principal, ()>,
 }
+impl_storable!(User);
 
 #[derive(CandidType, Deserialize, Debug)]
-pub struct Vehicle {}
+struct Vehicle {
+    // Vehicle public key.
+    principal: Principal,
+    arch: String,
+    firmware: Vec<u8>,
+}
+impl_storable!(Vehicle);
 
-impl Storable for Vehicle {
-    const BOUND: Bound = Bound::Bounded {
-        max_size: u32::MAX,
-        is_fixed_size: false,
-    };
+#[derive(CandidType, Deserialize, Debug)]
+struct Agreement {
+    name: String,
+    vh_provider: Principal,
+    vh_customer: Principal,
+    state: AgreementState,
+    conditions: AgreementConditions,
+    vehicles: HashMap<Principal, ()>,
+}
+impl_storable!(Agreement);
 
-    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        Decode!(bytes.as_ref(), Self).unwrap()
-    }
-
-    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
-        Cow::Owned(Encode!(self).unwrap())
-    }
+#[derive(CandidType, Deserialize, Debug)]
+struct AgreementConditions {
+    daily_usage_fee: String,
+    gas_price: String,
 }
 
 #[ic_cdk::update]
@@ -113,23 +121,55 @@ fn request_firmware() -> VTSResult<()> {
 #[ic_cdk::update]
 fn get_firmware_requests() -> VTSResult<Principal> {
     // todo: this canister method should be executed only by our gateway.
-    let (principal, _) = FIRMWARE_REQUESTS
-        .with(|requests| requests.borrow_mut().first_key_value().ok_or(Error::NotFound))?;
+    let (principal, _) =
+        FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().first_key_value().ok_or(Error::NotFound))?;
     Ok(principal)
 }
 
-#[derive(CandidType, Deserialize, Debug)]
-pub struct UploadFirmwareRequest {
-    pub principal: Principal,
-    pub _firmware: Vec<u8>,
-    pub _arch: String,
+#[ic_cdk::update]
+fn get_firmware_requests_by_user() -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().get(&caller).ok_or(Error::NotFound))?;
+    Ok(())
 }
 
 #[ic_cdk::update]
-fn upload_firmware(req: UploadFirmwareRequest) -> VTSResult<()> {
+fn upload_firmware(
+    vh_customer: Principal,
+    principal: Principal,
+    arch: String,
+    firmware: Vec<u8>,
+) -> VTSResult<()> {
     // todo: this canister method should be executed only by our gateway.
-    FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&req.principal));
-    Ok(())
+    FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&vh_customer));
+    VEHICLES.with(|vehicles| {
+        vehicles.borrow_mut().insert(
+            principal,
+            Vehicle {
+                principal,
+                arch,
+                firmware,
+            },
+        )
+    });
+    USERS.with(|users| -> VTSResult<()> {
+        let user = users.borrow_mut().get(&vh_customer);
+        match user {
+            Some(mut user) => {
+                user.vehicles.insert(principal, ());
+                users.borrow_mut().insert(vh_customer, user);
+            }
+            None => {
+                users.borrow_mut().insert(
+                    vh_customer,
+                    User {
+                        vehicles: HashMap::from_iter(vec![(principal, ())]),
+                    },
+                );
+            }
+        }
+        Ok(())
+    })
 }
 
 #[ic_cdk::update]
@@ -158,7 +198,7 @@ fn create_agreement(
                 daily_usage_fee,
                 gas_price,
             },
-            vehicles: vec![],
+            vehicles: HashMap::new(),
         };
         let mut agreements = agreements.borrow_mut();
         agreements.insert(next_agreement_id, agreement);
@@ -195,47 +235,34 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn link_vehicle(agreement_id: u128, vehicle_public_key: Principal) -> VTSResult<()> {
+fn link_vehicle(agreement_id: u128, vehicle: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
+        let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
 
-        if let Some(mut agreement) = agreements.get(&agreement_id) {
-            if agreement.vh_customer != caller {
-                return Err(Error::InvalidSigner);
-            }
-
-            if agreement.vehicles.contains(&vehicle_public_key) {
-                return Err(Error::AlreadyExists);
-            }
-
-            let vehicle = Vehicle {};
-            VEHICLES.with(|vehicles| {
-                let mut vehicles = vehicles.borrow_mut();
-                vehicles.insert(vehicle_public_key, vehicle);
-            });
-
-            agreement.vehicles.push(vehicle_public_key);
-            agreements.insert(agreement_id, agreement);
-
-            Ok(())
-        } else {
-            Err(Error::NotFound)
+        if agreement.vh_customer != caller {
+            return Err(Error::InvalidSigner);
         }
+        if agreement.vehicles.contains_key(&vehicle) {
+            return Err(Error::AlreadyExists);
+        }
+
+        agreement.vehicles.insert(vehicle, ());
+        agreements.insert(agreement_id, agreement);
+
+        Ok(())
     })
 }
 
 #[ic_cdk::query]
-fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<Vec<Principal>> {
+fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal, ()>> {
     AGREEMENTS.with(|agreements| {
         let agreements = agreements.borrow();
-        if let Some(agreement) = agreements.get(&agreement_id) {
-            Ok(agreement.vehicles.clone())
-        } else {
-            Err(Error::NotFound)
-        }
+        let agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
+        Ok(agreement.vehicles)
     })
 }
 
