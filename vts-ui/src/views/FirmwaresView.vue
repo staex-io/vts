@@ -6,8 +6,14 @@ export default {
     return {
       loading: false,
       success: '',
+      warning: '',
       error: '',
     }
+  },
+  async beforeMount() {
+    const vtsClient = await initVTSClient()
+    let requests = await vtsClient.get_firmware_requests_by_user()
+    if (requests.Ok === null) this.warning = 'You have active firmware request.'
   },
   methods: {
     cleanState() {
@@ -49,6 +55,14 @@ export default {
       class="success alert"
     >
       {{ success }}
+    </p>
+  </div>
+  <div>
+    <p
+      v-if="warning !== ''"
+      class="warning alert"
+    >
+      {{ warning }}
     </p>
   </div>
   <div>

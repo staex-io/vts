@@ -108,14 +108,19 @@ button:hover {
   border-radius: 4px;
 }
 
-.error {
-  color: var(--staex-white);
-  background-color: var(--staex-red);
-}
-
 .success {
   color: var(--staex-medium-pacific-blue);
   background-color: var(--staex-green);
+}
+
+.warning {
+  color: var(--staex-pacific-blue);
+  background-color: var(--staex-metallic-gold);
+}
+
+.error {
+  color: var(--staex-white);
+  background-color: var(--staex-red);
 }
 
 .container {
