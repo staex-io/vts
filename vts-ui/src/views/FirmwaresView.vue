@@ -4,34 +4,41 @@ import { initVTSClient } from '@/icp'
 export default {
   data() {
     return {
-      loading: false,
-      success: '',
-      warning: '',
-      error: '',
+      fetchActiveLoader: false,
+      activeText: '',
+
+      requestNewLoader: false,
+
+      successText: '',
+      errorText: '',
     }
   },
   async beforeMount() {
+    this.fetchActiveLoader = true
     const vtsClient = await initVTSClient()
     let requests = await vtsClient.get_firmware_requests_by_user()
-    if (requests.Ok === null) this.warning = 'You have active firmware request.'
+    if (requests.Ok === null)
+      this.activeText =
+        'You have active firmware request. Please wait while Staex gateway is build new firmware.'
+    this.fetchActiveLoader = false
   },
   methods: {
     cleanState() {
-      this.success = ''
-      this.error = ''
+      this.successText = ''
+      this.errorText = ''
     },
     async request() {
-      if (this.loading) return
-      this.loading = true
+      if (this.requestNewLoader) return
+      this.requestNewLoader = true
       this.cleanState()
 
       const vtsClient = await initVTSClient()
       const res = await vtsClient.request_firmware()
-      if (res.Ok === null) this.success = 'Successfully requested new firmware!'
+      if (res.Ok === null) this.successText = 'Successfully requested new firmware!'
       if (res.Err && res.Err.AlreadyExists === null)
-        this.error = 'You already have active firmware request.'
+        this.errorText = 'You already have active firmware request.'
 
-      this.loading = false
+      this.requestNewLoader = false
     },
   },
 }
@@ -39,44 +46,47 @@ export default {
 
 <template>
   <h1>Firmwares</h1>
+  <div
+    v-if="fetchActiveLoader"
+    class="warning alert loader-container"
+  >
+    <div class="loader" />
+    Fetching active firmware status...
+  </div>
+  <div>
+    <p
+      v-if="activeText !== ''"
+      class="warning alert"
+    >
+      {{ activeText }}
+    </p>
+  </div>
   <button
     type="button"
     @click="request"
   >
-    <span v-if="!loading">Request</span>
+    <span v-if="!requestNewLoader">Request new firmware</span>
     <div
-      v-if="loading"
+      v-if="requestNewLoader"
       class="loader"
     />
   </button>
-  <div>
-    <p
-      v-if="success !== ''"
-      class="success alert"
-    >
-      {{ success }}
-    </p>
+  <div
+    v-if="successText !== ''"
+    class="success alert"
+  >
+    {{ successText }}
   </div>
-  <div>
-    <p
-      v-if="warning !== ''"
-      class="warning alert"
-    >
-      {{ warning }}
-    </p>
-  </div>
-  <div>
-    <p
-      v-if="error !== ''"
-      class="error alert"
-    >
-      {{ error }}
-    </p>
+  <div
+    v-if="errorText !== ''"
+    class="error alert"
+  >
+    {{ errorText }}
   </div>
 </template>
 
 <style scoped>
 .alert {
-  margin-top: 20px;
+  margin: 20px 0 20px 0;
 }
 </style>
