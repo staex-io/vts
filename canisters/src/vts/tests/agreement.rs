@@ -15,18 +15,19 @@ async fn test_create_agreement() {
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
 
-    let agreement_id_first =
+    let agreement_id =
         create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
-    assert!(agreement_id_first > 0, "First agreement ID should be positive");
+    assert_eq!(1, agreement_id, "First agreement ID should be positive");
 }
 
 #[tokio::test]
 async fn test_sign_agreement() {
     let (agent, canister_id) = init_agent().await;
-    let vh_customer = agent.get_principal().unwrap();
+
     let name = "Test Agreement".to_string();
+    let vh_customer = agent.get_principal().unwrap();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
 
@@ -34,16 +35,14 @@ async fn test_sign_agreement() {
         create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
-
-    let result = sign_agreement(&agent, &canister_id, &agreement_id).await;
-    assert!(result.is_ok(), "Should successfully sign the agreement");
+    sign_agreement(&agent, &canister_id, &agreement_id).await.unwrap()
 }
 
 #[tokio::test]
 async fn test_sign_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
-    let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
 
+    let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let result = sign_agreement(&agent, &canister_id, &nonexistent_agreement_id).await.unwrap_err();
     assert_eq!(Error::NotFound, result);
 }
@@ -51,8 +50,9 @@ async fn test_sign_nonexistent_agreement() {
 #[tokio::test]
 async fn test_sign_agreement_twice() {
     let (agent, canister_id) = init_agent().await;
-    let vh_customer = agent.get_principal().unwrap();
+
     let name = "Test Agreement".to_string();
+    let vh_customer = agent.get_principal().unwrap();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
 
@@ -71,8 +71,9 @@ async fn test_sign_agreement_twice() {
 #[tokio::test]
 async fn test_create_duplicate_agreements() {
     let (agent, canister_id) = init_agent().await;
-    let vh_customer = agent.get_principal().unwrap();
+
     let name = "Test Agreement".to_string();
+    let vh_customer = agent.get_principal().unwrap();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
 
@@ -92,8 +93,9 @@ async fn test_create_duplicate_agreements() {
 #[tokio::test]
 async fn test_link_vehicle_to_agreement_success() {
     let (agent, canister_id) = init_agent().await;
-    let vh_customer = agent.get_principal().unwrap();
+
     let name = "Test Agreement".to_string();
+    let vh_customer = agent.get_principal().unwrap();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
     let vehicle_public_key = Principal::anonymous();
@@ -103,33 +105,28 @@ async fn test_link_vehicle_to_agreement_success() {
             .await
             .unwrap();
 
-    let result =
-        link_vehicle_to_agreement(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
+    let result = link_vehicle(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
     assert!(result.is_ok(), "Should successfully link the vehicle to the agreement");
 }
 
 #[tokio::test]
 async fn test_link_vehicle_to_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
+
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let vehicle_public_key = Principal::anonymous();
-
-    let result = link_vehicle_to_agreement(
-        &agent,
-        &canister_id,
-        &nonexistent_agreement_id,
-        &vehicle_public_key,
-    )
-    .await
-    .unwrap_err();
+    let result = link_vehicle(&agent, &canister_id, &nonexistent_agreement_id, &vehicle_public_key)
+        .await
+        .unwrap_err();
     assert_eq!(Error::NotFound, result);
 }
 
 #[tokio::test]
 async fn test_get_vehicles_by_agreement() {
     let (agent, canister_id) = init_agent().await;
-    let vh_customer = agent.get_principal().unwrap();
+
     let name = "Test Agreement".to_string();
+    let vh_customer = agent.get_principal().unwrap();
     let daily_usage_fee = "100".to_string();
     let gas_price = "10".to_string();
     let vehicle_public_key = Principal::anonymous();
@@ -139,12 +136,10 @@ async fn test_get_vehicles_by_agreement() {
             .await
             .unwrap();
 
-    let result =
-        link_vehicle_to_agreement(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
+    let result = link_vehicle(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
     assert!(result.is_ok(), "Should successfully link the vehicle to the agreement");
 
     let vehicles = get_vehicles_by_agreement(&agent, &canister_id, &agreement_id).await.unwrap();
-
     assert_eq!(vehicles.len(), 1, "Should return one vehicle");
     assert_eq!(vehicles[0], vehicle_public_key, "Should return the linked vehicle");
 }
@@ -152,8 +147,8 @@ async fn test_get_vehicles_by_agreement() {
 #[tokio::test]
 async fn test_get_vehicles_by_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
-    let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
 
+    let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let result = get_vehicles_by_agreement(&agent, &canister_id, &nonexistent_agreement_id)
         .await
         .unwrap_err();
@@ -201,14 +196,14 @@ async fn sign_agreement(
     Decode!(response.as_slice(), VTSResult<()>).unwrap()
 }
 
-async fn link_vehicle_to_agreement(
+async fn link_vehicle(
     agent: &Agent,
     canister_id: &Principal,
     agreement_id: &u128,
     vehicle_public_key: &Principal,
 ) -> VTSResult<()> {
     let response = agent
-        .update(canister_id, "link_vehicle_to_agreement")
+        .update(canister_id, "link_vehicle")
         .with_effective_canister_id(*canister_id)
         .with_arg(Encode!(&agreement_id, &vehicle_public_key).unwrap())
         .call_and_wait()
