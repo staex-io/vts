@@ -79,7 +79,7 @@ impl_storable!(User);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Vehicle {
-    // Vehicle public key.
+    owner: Principal,
     identity: Principal,
     arch: String,
     firmware: Vec<u8>,
@@ -132,6 +132,7 @@ fn get_firmware_requests() -> VTSResult<Principal> {
     Ok(identity)
 }
 
+// By this method we can check active firmware requests for the particular user.
 #[ic_cdk::query]
 fn get_firmware_requests_by_user() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
@@ -152,6 +153,7 @@ fn upload_firmware(
         vehicles.borrow_mut().insert(
             vehicle,
             Vehicle {
+                owner: vh_customer,
                 identity: vehicle,
                 arch,
                 firmware,
@@ -176,6 +178,16 @@ fn upload_firmware(
         }
         Ok(())
     })
+}
+
+#[ic_cdk::query]
+fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
+    let caller = ic_cdk::api::caller();
+    let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
+    if vehicle.owner != caller {
+        return Err(Error::InvalidSigner);
+    }
+    Ok(vehicle)
 }
 
 #[ic_cdk::update]

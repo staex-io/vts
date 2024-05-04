@@ -1,4 +1,8 @@
-use std::{fmt::Debug, time::Duration};
+use std::{
+    fmt::Debug,
+    io::{Cursor, Write},
+    time::Duration,
+};
 
 use candid::{Decode, Encode};
 use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent, Identity};
@@ -10,6 +14,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use vts::VTSResult;
+use zip::write::SimpleFileOptions;
 
 type Res<T> = Result<T, Error>;
 
@@ -91,10 +96,11 @@ async fn check_firmware_requests() -> Res<()> {
     if !output.status.success() {
         return Err("build firmware error".into());
     }
-    let firmware = std::fs::read("../target/debug/firmware")?;
     let vehicle = Secp256k1Identity::from_private_key(secret_key.clone());
+    let firmware = std::fs::read("../target/debug/firmware")?;
+    let firmware = compress_firmware(vehicle.sender()?, firmware)?;
     upload_firmware(&agent, canister_id, vh_customer, vehicle.sender()?, firmware).await?;
-    debug!("successfully uploaded new firmware for {vh_customer}");
+    debug!("successfully uploaded new firmware for {vh_customer}: {}", vehicle.sender()?);
     Ok(())
 }
 
@@ -137,4 +143,17 @@ async fn upload_firmware(
         .call_and_wait()
         .await?;
     Ok(Decode!(res.as_slice(), VTSResult<()>)?.map_err(|_| "failed to upload firmware".to_string())?)
+}
+
+fn compress_firmware(vehicle: Principal, firmware: Vec<u8>) -> Res<Vec<u8>> {
+    let mut buf = Cursor::new(vec![]);
+    let mut zip = zip::ZipWriter::new(&mut buf);
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored)
+        .unix_permissions(0o755);
+    zip.start_file(format!("{vehicle}.firmware.{}", std::env::consts::ARCH), options)?;
+    zip.write_all(&firmware)?;
+    zip.finish()?;
+    drop(zip); // to make buf free
+    Ok(buf.into_inner())
 }

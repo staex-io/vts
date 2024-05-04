@@ -12,7 +12,14 @@ export const idlFactory = ({ IDL }) => {
     'vehicles' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
   });
   const Result_3 = IDL.Variant({ 'Ok' : User, 'Err' : Error });
-  const Result_4 = IDL.Variant({
+  const Vehicle = IDL.Record({
+    'owner' : IDL.Principal,
+    'arch' : IDL.Text,
+    'firmware' : IDL.Vec(IDL.Nat8),
+    'identity' : IDL.Principal,
+  });
+  const Result_4 = IDL.Variant({ 'Ok' : Vehicle, 'Err' : Error });
+  const Result_5 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
     'Err' : Error,
   });
@@ -25,7 +32,8 @@ export const idlFactory = ({ IDL }) => {
     'get_firmware_requests' : IDL.Func([], [Result_1], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result_2], ['query']),
     'get_user' : IDL.Func([], [Result_3], ['query']),
-    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_4], ['query']),
+    'get_vehicle' : IDL.Func([IDL.Principal], [Result_4], ['query']),
+    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_5], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result_2], []),
     'request_firmware' : IDL.Func([], [Result_2], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result_2], []),

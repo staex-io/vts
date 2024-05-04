@@ -27,6 +27,11 @@ export default {
     const user = await vtsClient.get_user()
     if (user.Ok !== undefined) this.vehicles = user.Ok.vehicles
 
+    for (let i = 0; i < this.vehicles.length; i++) {
+      const vehicle = (await vtsClient.get_vehicle(this.vehicles[i][0])).Ok
+      this.vehicles[i] = vehicle
+    }
+
     this.fetchUserLoader = false
   },
   methods: {
@@ -46,6 +51,23 @@ export default {
         this.errorText = 'You already have active firmware request.'
 
       this.requestNewLoader = false
+    },
+    async downloadFirmware(identity, arch, firmware) {
+      const firmwareUrl = URL.createObjectURL(
+        new Blob([new Uint8Array(firmware).buffer], { type: 'application/zip' }),
+      )
+      const link = document.createElement('a')
+      link.href = firmwareUrl
+      link.download = `${identity}.firmware.${arch}.zip`
+      document.body.appendChild(link)
+      link.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        }),
+      )
+      document.body.removeChild(link)
     },
   },
 }
@@ -86,15 +108,18 @@ export default {
       <thead>
         <tr>
           <th>Internet Identity</th>
+          <th>Arch</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="[principal, _] in vehicles"
-          :key="principal"
+          v-for="{ identity, arch, firmware } in vehicles"
+          :key="identity"
           class="mouse-pointer"
+          @click="() => downloadFirmware(identity, arch, firmware)"
         >
-          <td>{{ principal }}</td>
+          <td>{{ identity.toString() }}</td>
+          <td>{{ arch }}</td>
         </tr>
       </tbody>
     </table>
