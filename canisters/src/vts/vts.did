@@ -1,14 +1,30 @@
+type Agreement = record {
+  id : nat;
+  vehicles : vec record { principal; null };
+  name : text;
+  state : AgreementState;
+  conditions : AgreementConditions;
+  vh_provider : principal;
+  vh_customer : principal;
+};
+type AgreementConditions = record { daily_usage_fee : text; gas_price : text };
+type AgreementState = variant { Unsigned; Signed };
 type Error = variant { InvalidSigner; Internal; NotFound; AlreadyExists };
 type Result = variant { Ok : nat; Err : Error };
 type Result_1 = variant { Ok : principal; Err : Error };
 type Result_2 = variant { Ok; Err : Error };
 type Result_3 = variant { Ok : User; Err : Error };
-type Result_4 = variant { Ok : Vehicle; Err : Error };
-type Result_5 = variant { Ok : vec record { principal; null }; Err : Error };
-type User = record { vehicles : vec record { principal; null } };
+type Result_4 = variant { Ok : vec Agreement; Err : Error };
+type Result_5 = variant { Ok : Vehicle; Err : Error };
+type Result_6 = variant { Ok : vec record { principal; null }; Err : Error };
+type User = record {
+  agreements : vec record { nat; null };
+  vehicles : vec record { principal; null };
+};
 type Vehicle = record {
   owner : principal;
   arch : text;
+  agreement : opt nat;
   firmware : blob;
   identity : principal;
 };
@@ -17,8 +33,9 @@ service : {
   get_firmware_requests : () -> (Result_1) query;
   get_firmware_requests_by_user : () -> (Result_2) query;
   get_user : () -> (Result_3) query;
-  get_vehicle : (principal) -> (Result_4) query;
-  get_vehicles_by_agreement : (nat) -> (Result_5) query;
+  get_user_agreements : () -> (Result_4) query;
+  get_vehicle : (principal) -> (Result_5) query;
+  get_vehicles_by_agreement : (nat) -> (Result_6) query;
   link_vehicle : (nat, principal) -> (Result_2);
   request_firmware : () -> (Result_2);
   sign_agreement : (nat) -> (Result_2);

@@ -44,6 +44,9 @@ export default {
           <RouterLink to="/firmwares">
             Firmwares
           </RouterLink>
+          <RouterLink to="/agreements">
+            Agreements
+          </RouterLink>
         </li>
         <li
           class="mouse-pointer"

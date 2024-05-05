@@ -1,10 +1,11 @@
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::collections::HashMap;
 
 macro_rules! impl_storable {
     ($struct_name:ident) => {
@@ -52,9 +53,9 @@ thread_local! {
     );
 }
 
-type Memory = VirtualMemory<DefaultMemoryImpl>;
-
 pub type VTSResult<T> = Result<T, Error>;
+
+type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 #[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
@@ -74,12 +75,14 @@ enum AgreementState {
 #[derive(CandidType, Deserialize, Debug)]
 struct User {
     vehicles: HashMap<Principal, ()>,
+    agreements: HashMap<u128, ()>,
 }
 impl_storable!(User);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Vehicle {
     owner: Principal,
+    agreement: Option<u128>,
     identity: Principal,
     arch: String,
     firmware: Vec<u8>,
@@ -88,6 +91,7 @@ impl_storable!(Vehicle);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Agreement {
+    id: u128,
     name: String,
     vh_provider: Principal,
     vh_customer: Principal,
@@ -154,6 +158,7 @@ fn upload_firmware(
             vehicle,
             Vehicle {
                 owner: vh_customer,
+                agreement: None,
                 identity: vehicle,
                 arch,
                 firmware,
@@ -172,6 +177,7 @@ fn upload_firmware(
                     vh_customer,
                     User {
                         vehicles: HashMap::from_iter(vec![(vehicle, ())]),
+                        agreements: HashMap::new(),
                     },
                 );
             }
@@ -199,14 +205,16 @@ fn create_agreement(
 ) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
-    AGREEMENTS.with(|agreements| {
-        let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
-            let mut counter = counter.borrow_mut();
-            *counter += 1;
-            *counter
-        });
 
+    let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
+        let mut counter = counter.borrow_mut();
+        *counter += 1;
+        *counter
+    });
+
+    AGREEMENTS.with(|agreements| {
         let agreement = Agreement {
+            id: next_agreement_id,
             name,
             vh_provider: caller,
             vh_customer,
@@ -220,9 +228,19 @@ fn create_agreement(
         };
         let mut agreements = agreements.borrow_mut();
         agreements.insert(next_agreement_id, agreement);
+    });
 
-        Ok(next_agreement_id)
-    })
+    USERS.with(|users| {
+        let mut vh_provider_user = users.borrow_mut().get(&caller).ok_or(Error::NotFound)?;
+        let mut vh_customer_user = users.borrow_mut().get(&vh_customer).ok_or(Error::NotFound)?;
+        vh_provider_user.agreements.insert(next_agreement_id, ());
+        vh_customer_user.agreements.insert(next_agreement_id, ());
+        users.borrow_mut().insert(caller, vh_provider_user);
+        users.borrow_mut().insert(vh_customer, vh_customer_user);
+        Ok(())
+    })?;
+
+    Ok(next_agreement_id)
 }
 
 #[ic_cdk::update]
@@ -253,7 +271,7 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn link_vehicle(agreement_id: u128, vehicle: Principal) -> VTSResult<()> {
+fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
@@ -261,18 +279,47 @@ fn link_vehicle(agreement_id: u128, vehicle: Principal) -> VTSResult<()> {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
 
-        if agreement.vh_customer != caller {
-            return Err(Error::InvalidSigner);
-        }
-        if agreement.vehicles.contains_key(&vehicle) {
+        if agreement.vehicles.contains_key(&vehicle_identity) {
             return Err(Error::AlreadyExists);
         }
 
-        agreement.vehicles.insert(vehicle, ());
+        agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
 
         Ok(())
+    })?;
+
+    VEHICLES.with(|vehicles| {
+        let mut vehicle = vehicles.borrow_mut().get(&vehicle_identity).ok_or(Error::NotFound)?;
+
+        if caller != vehicle.owner {
+            return Err(Error::InvalidSigner);
+        }
+        if vehicle.agreement.is_some() {
+            return Err(Error::AlreadyExists);
+        }
+
+        vehicle.agreement = Some(agreement_id);
+        vehicles.borrow_mut().insert(vehicle_identity, vehicle);
+
+        Ok(())
     })
+}
+
+#[ic_cdk::query]
+fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
+    let caller = ic_cdk::api::caller();
+    let user = USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))?;
+    let mut agreements = Vec::with_capacity(user.agreements.len());
+    AGREEMENTS.with(|agreements_storage| {
+        let agreements_storage = agreements_storage.borrow();
+        for (user_agreement_id, _) in user.agreements {
+            let agreement = agreements_storage.get(&user_agreement_id).ok_or(Error::NotFound)?;
+            agreements.push(agreement)
+        }
+        Ok(())
+    })?;
+    Ok(agreements)
 }
 
 #[ic_cdk::query]

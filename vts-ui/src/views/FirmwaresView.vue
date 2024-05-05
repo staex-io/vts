@@ -1,4 +1,5 @@
 <script>
+import router from '@/router'
 import { initVTSClient } from '@/icp'
 
 export default {
@@ -69,6 +70,18 @@ export default {
       )
       document.body.removeChild(link)
     },
+    linkFirmware(identity) {
+      router.push({
+        name: 'vehicleLink',
+        params: {
+          vehicle: identity,
+        },
+      })
+    },
+    goToAgreement(agreement) {
+      console.log(agreement)
+      alert('In future redirect to the agreement will be implemented!')
+    },
   },
 }
 </script>
@@ -92,7 +105,7 @@ export default {
   </div>
 
   <button
-    type="button"
+    style="margin-bottom: 25px"
     @click="request"
   >
     <span v-if="!requestNewLoader">Request new firmware</span>
@@ -103,23 +116,49 @@ export default {
   </button>
 
   <div v-if="!fetchUserLoader && vehicles.length">
-    <h2>Available firmwares</h2>
+    <h2 style="margin-bottom: 25px">
+      Available firmwares
+    </h2>
     <table>
       <thead>
         <tr>
           <th>Internet Identity</th>
           <th>Arch</th>
+          <th />
+          <th />
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="{ identity, arch, firmware } in vehicles"
+          v-for="{ agreement, identity, arch, firmware } in vehicles"
           :key="identity"
-          class="mouse-pointer"
-          @click="() => downloadFirmware(identity, arch, firmware)"
         >
           <td>{{ identity.toString() }}</td>
           <td>{{ arch }}</td>
+          <td style="text-align: right">
+            <button
+              class="action-btn"
+              @click="() => downloadFirmware(identity, arch, firmware)"
+            >
+              Download
+            </button>
+          </td>
+          <td style="text-align: right">
+            <button
+              v-if="agreement.length === 0"
+              class="action-btn"
+              @click="() => linkFirmware(identity)"
+            >
+              Link
+            </button>
+            <button
+              v-else
+              class="action-btn"
+              @click="() => goToAgreement(agreement)"
+            >
+              Agreement
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -147,11 +186,12 @@ export default {
   margin: 20px 0 20px 0;
 }
 
-button {
-  margin-bottom: 25px;
+.action-btn {
+  margin: 5px;
+  padding: 2px 25px 2px 25px;
 }
 
-h2 {
-  margin-bottom: 25px;
+.action-btn:hover {
+  background-color: black;
 }
 </style>
