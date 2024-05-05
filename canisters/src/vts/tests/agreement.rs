@@ -18,7 +18,7 @@ async fn test_create_agreement() {
     let gas_price = "10".to_string();
 
     let agreement_id =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
     assert_eq!(1, agreement_id, "First agreement ID should be positive");
@@ -34,10 +34,10 @@ async fn test_sign_agreement() {
     let gas_price = "10".to_string();
 
     let agreement_id =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
-    sign_agreement(&agent, &canister_id, &agreement_id).await.unwrap()
+    sign_agreement(&agent, canister_id, &agreement_id).await.unwrap()
 }
 
 #[tokio::test]
@@ -45,7 +45,7 @@ async fn test_sign_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
-    let result = sign_agreement(&agent, &canister_id, &nonexistent_agreement_id).await.unwrap_err();
+    let result = sign_agreement(&agent, canister_id, &nonexistent_agreement_id).await.unwrap_err();
     assert_eq!(Error::NotFound, result);
 }
 
@@ -59,14 +59,14 @@ async fn test_sign_agreement_twice() {
     let gas_price = "10".to_string();
 
     let agreement_id =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
 
-    let result_first = sign_agreement(&agent, &canister_id, &agreement_id).await;
+    let result_first = sign_agreement(&agent, canister_id, &agreement_id).await;
     assert!(result_first.is_ok(), "Should successfully sign the agreement the first time");
 
-    let result_second = sign_agreement(&agent, &canister_id, &agreement_id).await.unwrap_err();
+    let result_second = sign_agreement(&agent, canister_id, &agreement_id).await.unwrap_err();
     assert_eq!(Error::AlreadyExists, result_second);
 }
 
@@ -80,12 +80,12 @@ async fn test_create_duplicate_agreements() {
     let gas_price = "10".to_string();
 
     let agreement_id1 =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
 
     let agreement_id2 =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
 
@@ -103,11 +103,11 @@ async fn test_link_vehicle_to_agreement_success() {
     let vehicle_public_key = Principal::anonymous();
 
     let agreement_id =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
 
-    let result = link_vehicle(&agent, &canister_id, &agreement_id, &vehicle_public_key).await;
+    let result = link_vehicle(&agent, canister_id, &agreement_id, &vehicle_public_key).await;
     assert!(result.is_ok(), "Should successfully link the vehicle to the agreement");
 }
 
@@ -117,9 +117,8 @@ async fn test_link_vehicle_to_nonexistent_agreement() {
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let vehicle_public_key = Principal::anonymous();
-    let result = link_vehicle(&agent, &canister_id, &nonexistent_agreement_id, &vehicle_public_key)
-        .await
-        .unwrap_err();
+    let result =
+        link_vehicle(&agent, canister_id, &nonexistent_agreement_id, &vehicle_public_key).await.unwrap_err();
     assert_eq!(Error::NotFound, result);
 }
 
@@ -134,14 +133,14 @@ async fn test_get_vehicles_by_agreement() {
     let vehicle = Principal::anonymous();
 
     let agreement_id =
-        create_agreement(&agent, &canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
+        create_agreement(&agent, canister_id, &name, &vh_customer, &daily_usage_fee, &gas_price)
             .await
             .unwrap();
 
-    let result = link_vehicle(&agent, &canister_id, &agreement_id, &vehicle).await;
+    let result = link_vehicle(&agent, canister_id, &agreement_id, &vehicle).await;
     assert!(result.is_ok(), "Should successfully link the vehicle to the agreement");
 
-    let vehicles = get_vehicles_by_agreement(&agent, &canister_id, &agreement_id).await.unwrap();
+    let vehicles = get_vehicles_by_agreement(&agent, canister_id, &agreement_id).await.unwrap();
     assert_eq!(vehicles.len(), 1, "Should return one vehicle");
     assert_eq!(vehicles.get(&vehicle).unwrap(), &(), "Should return the linked vehicle");
 }
@@ -151,22 +150,51 @@ async fn test_get_vehicles_by_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
-    let result =
-        get_vehicles_by_agreement(&agent, &canister_id, &nonexistent_agreement_id).await.unwrap_err();
+    let result = get_vehicles_by_agreement(&agent, canister_id, &nonexistent_agreement_id).await.unwrap_err();
     assert_eq!(Error::NotFound, result);
 }
 
 async fn create_agreement(
     agent: &Agent,
-    canister_id: &Principal,
+    canister_id: Principal,
     name: &str,
     vh_customer: &Principal,
     daily_usage_fee: &str,
     gas_price: &str,
 ) -> VTSResult<u128> {
+    let firmware: Vec<u8> = vec![0, 1, 2];
+
+    // By this request we initialize user record in smart contract for the vehicle provider.
+    let res = agent
+        .update(&canister_id, "upload_firmware")
+        .with_effective_canister_id(canister_id)
+        .with_arg(
+            Encode!(
+                &agent.get_principal().unwrap(), // this is our vehicle provider
+                &Principal::anonymous(),
+                &"arm64".to_string(),
+                &firmware
+            )
+            .unwrap(),
+        )
+        .call_and_wait()
+        .await
+        .unwrap();
+    Decode!(res.as_slice(), VTSResult<()>).unwrap().unwrap();
+
+    // By this request we initialize user record in smart contract for the vehicle customer.
+    let res = agent
+        .update(&canister_id, "upload_firmware")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(vh_customer, &Principal::anonymous(), &"arm64".to_string(), &firmware).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+    Decode!(res.as_slice(), VTSResult<()>).unwrap().unwrap();
+
     let response = agent
-        .update(canister_id, "create_agreement")
-        .with_effective_canister_id(*canister_id)
+        .update(&canister_id, "create_agreement")
+        .with_effective_canister_id(canister_id)
         .with_arg(
             Encode!(&name.to_string(), vh_customer, &daily_usage_fee.to_string(), &gas_price.to_string())
                 .unwrap(),
@@ -177,10 +205,10 @@ async fn create_agreement(
     Decode!(response.as_slice(), VTSResult<u128>).unwrap()
 }
 
-async fn sign_agreement(agent: &Agent, canister_id: &Principal, agreement_id: &u128) -> VTSResult<()> {
+async fn sign_agreement(agent: &Agent, canister_id: Principal, agreement_id: &u128) -> VTSResult<()> {
     let response = agent
-        .update(canister_id, "sign_agreement")
-        .with_effective_canister_id(*canister_id)
+        .update(&canister_id, "sign_agreement")
+        .with_effective_canister_id(canister_id)
         .with_arg(Encode!(&agreement_id).unwrap())
         .call_and_wait()
         .await
@@ -190,13 +218,13 @@ async fn sign_agreement(agent: &Agent, canister_id: &Principal, agreement_id: &u
 
 async fn link_vehicle(
     agent: &Agent,
-    canister_id: &Principal,
+    canister_id: Principal,
     agreement_id: &u128,
     vehicle: &Principal,
 ) -> VTSResult<()> {
     let response = agent
-        .update(canister_id, "link_vehicle")
-        .with_effective_canister_id(*canister_id)
+        .update(&canister_id, "link_vehicle")
+        .with_effective_canister_id(canister_id)
         .with_arg(Encode!(&agreement_id, &vehicle).unwrap())
         .call_and_wait()
         .await
@@ -206,12 +234,12 @@ async fn link_vehicle(
 
 async fn get_vehicles_by_agreement(
     agent: &Agent,
-    canister_id: &Principal,
+    canister_id: Principal,
     agreement_id: &u128,
 ) -> VTSResult<HashMap<Principal, ()>> {
     let response = agent
-        .query(canister_id, "get_vehicles_by_agreement")
-        .with_effective_canister_id(*canister_id)
+        .query(&canister_id, "get_vehicles_by_agreement")
+        .with_effective_canister_id(canister_id)
         .with_arg(Encode!(&agreement_id).unwrap())
         .call()
         .await

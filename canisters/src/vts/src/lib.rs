@@ -275,6 +275,20 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
+    AGREEMENTS.with(|agreements| {
+        let mut agreements = agreements.borrow_mut();
+        let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
+
+        if agreement.vehicles.contains_key(&vehicle_identity) {
+            return Err(Error::AlreadyExists);
+        }
+
+        agreement.vehicles.insert(vehicle_identity, ());
+        agreements.insert(agreement_id, agreement);
+
+        Ok(())
+    })?;
+
     VEHICLES.with(|vehicles| {
         let mut vehicle = vehicles.borrow_mut().get(&vehicle_identity).ok_or(Error::NotFound)?;
 
@@ -287,20 +301,6 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
 
         vehicle.agreement = Some(agreement_id);
         vehicles.borrow_mut().insert(vehicle_identity, vehicle);
-
-        Ok(())
-    })?;
-
-    AGREEMENTS.with(|agreements| {
-        let mut agreements = agreements.borrow_mut();
-        let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
-
-        if agreement.vehicles.contains_key(&vehicle_identity) {
-            return Err(Error::AlreadyExists);
-        }
-
-        agreement.vehicles.insert(vehicle_identity, ());
-        agreements.insert(agreement_id, agreement);
 
         Ok(())
     })
