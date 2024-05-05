@@ -1,6 +1,6 @@
 use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
-use vts::{Error, UploadFirmwareRequest, VTSResult};
+use vts::{Error, VTSResult};
 
 use crate::agent::init_agent;
 
@@ -10,6 +10,9 @@ mod agent;
 async fn test_firmware() {
     let (agent, canister_id) = init_agent().await;
 
+    let err = get_firmware_requests_by_user(&agent, canister_id).await.unwrap_err();
+    assert_eq!(Error::NotFound, err);
+
     // Request new firmware.
     request_firmware(&agent, canister_id).await.unwrap();
 
@@ -17,6 +20,9 @@ async fn test_firmware() {
     // Canister should return an error about it.
     let err = request_firmware(&agent, canister_id).await.unwrap_err();
     assert_eq!(Error::AlreadyExists, err);
+
+    // Check that now user has active firmware request.
+    get_firmware_requests_by_user(&agent, canister_id).await.unwrap();
 
     // Upload firmware deletes current active user request.
     upload_firmware(&agent, canister_id).await.unwrap();
@@ -39,16 +45,29 @@ async fn request_firmware(agent: &Agent, canister_id: Principal) -> VTSResult<()
     Decode!(res.as_slice(), VTSResult<()>).unwrap()
 }
 
+async fn get_firmware_requests_by_user(agent: &Agent, canister_id: Principal) -> VTSResult<()> {
+    let res = agent
+        .update(&canister_id, "get_firmware_requests_by_user")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&()).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+    Decode!(res.as_slice(), VTSResult<()>).unwrap()
+}
+
 async fn upload_firmware(agent: &Agent, canister_id: Principal) -> VTSResult<()> {
+    let firmware: Vec<u8> = vec![0, 1, 2];
     let res = agent
         .update(&canister_id, "upload_firmware")
         .with_effective_canister_id(canister_id)
         .with_arg(
-            Encode!(&UploadFirmwareRequest {
-                principal: agent.get_principal().unwrap(),
-                _firmware: vec![0, 1, 2],
-                _arch: "arm64".to_string(),
-            })
+            Encode!(
+                &agent.get_principal().unwrap(),
+                &agent.get_principal().unwrap(),
+                &"arm64".to_string(),
+                &firmware
+            )
             .unwrap(),
         )
         .call_and_wait()

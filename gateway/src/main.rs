@@ -1,7 +1,11 @@
-use std::{fmt::Debug, time::Duration};
+use std::{
+    fmt::Debug,
+    io::{Cursor, Write},
+    time::Duration,
+};
 
 use candid::{Decode, Encode};
-use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent};
+use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent, Identity};
 use log::{debug, error, info, trace, LevelFilter};
 use serde::Deserialize;
 use tokio::{
@@ -10,6 +14,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use vts::VTSResult;
+use zip::write::SimpleFileOptions;
 
 type Res<T> = Result<T, Error>;
 
@@ -76,19 +81,35 @@ async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
 
 async fn check_firmware_requests() -> Res<()> {
     let (agent, canister_id) = init_agent().await?;
-    let principal = get_firmware_request(&agent, canister_id).await?;
-    debug!("new firmware request: {:?}", principal);
+    let vh_customer = match get_firmware_request(&agent, canister_id).await? {
+        Some(principal) => principal,
+        None => {
+            debug!("now active firmware requests to build new firmware");
+            return Ok(());
+        }
+    };
+    debug!("new firmware request: {vh_customer}, building new firmware");
+    let secret_key = k256::SecretKey::random(&mut rand::thread_rng());
+    std::fs::write("../firmware/secret_key", secret_key.to_bytes())?;
+    let output =
+        std::process::Command::new("cargo").args(vec!["build"]).current_dir("../firmware").output()?;
+    if !output.status.success() {
+        return Err("build firmware error".into());
+    }
+    let vehicle = Secp256k1Identity::from_private_key(secret_key.clone());
+    let firmware = std::fs::read("../target/debug/firmware")?;
+    let firmware = compress_firmware(vehicle.sender()?, firmware)?;
+    upload_firmware(&agent, canister_id, vh_customer, vehicle.sender()?, firmware).await?;
+    debug!("successfully uploaded new firmware for {vh_customer}: {}", vehicle.sender()?);
     Ok(())
 }
 
 async fn init_agent() -> Res<(Agent, Principal)> {
     let identity = Secp256k1Identity::from_pem_file("../canisters/identity.pem")?;
-    let agent =
-        Agent::builder().with_url("http://127.0.0.1:7777").with_identity(identity).build()?;
+    let agent = Agent::builder().with_url("http://127.0.0.1:7777").with_identity(identity).build()?;
     agent.fetch_root_key().await?;
-    let canisters_ids: CanisterIds = serde_json::from_str(&std::fs::read_to_string(
-        "../canisters/.dfx/local/canister_ids.json",
-    )?)?;
+    let canisters_ids: CanisterIds =
+        serde_json::from_str(&std::fs::read_to_string("../canisters/.dfx/local/canister_ids.json")?)?;
     let canister_id = Principal::from_text(canisters_ids.vts.local)?;
     Ok((agent, canister_id))
 }
@@ -106,4 +127,33 @@ async fn get_firmware_request(agent: &Agent, canister_id: Principal) -> Res<Opti
         Err(vts::Error::NotFound) => Ok(None),
         Err(_) => Err("failed to decode response".to_string().into()),
     }
+}
+
+async fn upload_firmware(
+    agent: &Agent,
+    canister_id: Principal,
+    vh_customer: Principal,
+    vehicle: Principal,
+    firmware: Vec<u8>,
+) -> Res<()> {
+    let res = agent
+        .update(&canister_id, "upload_firmware")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&vh_customer, &vehicle, &std::env::consts::ARCH.to_string(), &firmware)?)
+        .call_and_wait()
+        .await?;
+    Ok(Decode!(res.as_slice(), VTSResult<()>)?.map_err(|_| "failed to upload firmware".to_string())?)
+}
+
+fn compress_firmware(vehicle: Principal, firmware: Vec<u8>) -> Res<Vec<u8>> {
+    let mut buf = Cursor::new(vec![]);
+    let mut zip = zip::ZipWriter::new(&mut buf);
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored)
+        .unix_permissions(0o755);
+    zip.start_file(format!("{vehicle}.firmware.{}", std::env::consts::ARCH), options)?;
+    zip.write_all(&firmware)?;
+    zip.finish()?;
+    drop(zip); // to make buf free
+    Ok(buf.into_inner())
 }
