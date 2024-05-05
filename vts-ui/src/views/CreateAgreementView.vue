@@ -1,7 +1,7 @@
 <script>
-import { Principal } from '@dfinity/principal'
-import { initVTSClient } from '@/icp'
 import router from '@/router'
+import { initVTSClient } from '@/icp'
+import { Principal } from '@dfinity/principal'
 
 export default {
   data() {
@@ -80,7 +80,6 @@ export default {
   >
 
   <button
-    type="button"
     style="margin-top: 25px; width: 100%"
     @click="createAgreement"
   >

@@ -28,6 +28,11 @@ const router = createRouter({
       name: 'createAgreement',
       component: CreateAgreementView,
     },
+    {
+      path: '/vehicle/link/:vehicle',
+      name: 'vehicleLink',
+      component: AgreementsView,
+    },
   ],
 })
 router.beforeEach(async (to, from, next) => {

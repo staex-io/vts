@@ -3,6 +3,7 @@ import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
 export interface Agreement {
+  'id' : bigint,
   'vehicles' : Array<[Principal, null]>,
   'name' : string,
   'state' : AgreementState,

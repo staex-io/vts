@@ -1,4 +1,5 @@
 type Agreement = record {
+  id : nat;
   vehicles : vec record { principal; null };
   name : text;
   state : AgreementState;

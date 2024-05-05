@@ -90,6 +90,7 @@ impl_storable!(Vehicle);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Agreement {
+    id: u128,
     name: String,
     vh_provider: Principal,
     vh_customer: Principal,
@@ -211,6 +212,7 @@ fn create_agreement(
 
     AGREEMENTS.with(|agreements| {
         let agreement = Agreement {
+            id: next_agreement_id,
             name,
             vh_provider: caller,
             vh_customer,
@@ -275,9 +277,14 @@ fn link_vehicle(agreement_id: u128, vehicle: Principal) -> VTSResult<()> {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
 
-        if agreement.vh_customer != caller {
-            return Err(Error::InvalidSigner);
-        }
+        VEHICLES.with(|vehicles| {
+            let vehicle = vehicles.borrow().get(&vehicle).ok_or(Error::NotFound)?;
+            if caller != vehicle.owner {
+                return Err(Error::InvalidSigner);
+            }
+            Ok(())
+        })?;
+
         if agreement.vehicles.contains_key(&vehicle) {
             return Err(Error::AlreadyExists);
         }

@@ -1,4 +1,5 @@
 <script>
+import router from '@/router'
 import { initVTSClient } from '@/icp'
 
 export default {
@@ -69,6 +70,14 @@ export default {
       )
       document.body.removeChild(link)
     },
+    async linkFirmware(identity) {
+      router.push({
+        name: 'vehicleLink',
+        params: {
+          vehicle: identity,
+        },
+      })
+    },
   },
 }
 </script>
@@ -92,7 +101,6 @@ export default {
   </div>
 
   <button
-    type="button"
     style="margin-bottom: 25px"
     @click="request"
   >
@@ -113,6 +121,7 @@ export default {
           <th>Internet Identity</th>
           <th>Arch</th>
           <th />
+          <th />
         </tr>
       </thead>
       <tbody>
@@ -124,10 +133,18 @@ export default {
           <td>{{ arch }}</td>
           <td style="text-align: center">
             <button
-              class="download-btn"
+              class="action-btn"
               @click="() => downloadFirmware(identity, arch, firmware)"
             >
               Download
+            </button>
+          </td>
+          <td style="text-align: center">
+            <button
+              class="action-btn"
+              @click="() => linkFirmware(identity)"
+            >
+              Link
             </button>
           </td>
         </tr>
@@ -157,12 +174,12 @@ export default {
   margin: 20px 0 20px 0;
 }
 
-.download-btn {
+.action-btn {
   margin: 5px;
   padding: 2px 25px 2px 25px;
 }
 
-.download-btn:hover {
+.action-btn:hover {
   background-color: black;
 }
 </style>
