@@ -14,6 +14,9 @@ export default {
       vehicleToLink: '',
       linked: false,
 
+      signAgreementLoader: '',
+      signed: false,
+
       errorText: '',
     }
   },
@@ -58,33 +61,41 @@ export default {
 
       this.linkVehicleLoader = false
     },
+    async signAgreement(id) {
+      if (this.signAgreementLoader) return
+      this.signAgreementLoader = true
+
+      const vtsClient = await initVTSClient()
+      const res = await vtsClient.sign_agreement(id)
+
+      if (res.Ok !== undefined) {
+        this.signed = true
+      }
+      if (this.$route.name === 'agreements') {
+        window.location.reload()
+        return
+      } else if (res.Err !== undefined)
+        this.errorText = 'Failed to sign the agreement. Try again later.'
+
+      this.signAgreementLoader = false
+    },
   },
 }
 </script>
 
 <template>
   <h1>Agreements</h1>
-  <div
-    v-if="fetchAgreementsLoader"
-    class="warning alert loader-container"
-  >
+  <div v-if="fetchAgreementsLoader" class="warning alert loader-container">
     <div class="loader" />
     Fetching active agreements status...
   </div>
 
   <div style="margin-bottom: 25px">
-    <button
-      class="mouse-pointer"
-      @click="goToCreateAgreementPage"
-    >
-      Create new agreement
-    </button>
+    <button class="mouse-pointer" @click="goToCreateAgreementPage">Create new agreement</button>
   </div>
 
   <div v-if="!fetchAgreementsLoader && agreements.length">
-    <h2 style="margin-bottom: 25px">
-      Available agreements
-    </h2>
+    <h2 style="margin-bottom: 25px">Available agreements</h2>
     <table>
       <thead>
         <tr>
@@ -109,39 +120,47 @@ export default {
           </td>
           <td>{{ conditions.daily_usage_fee }}</td>
           <td>{{ conditions.gas_price }}</td>
-          <td>{{ state.Unsigned === null ? 'Unsigned' : '' }}</td>
-          <td v-if="vehicleToLink">
+          <td>
             <button
-              v-if="!linked"
+              v-if="state.Unsigned === null && ownPrincipal === vh_customer.toText()"
               class="link-btn"
-              @click="() => linkVehicle(id)"
+              @click="() => signAgreement(id)"
+              style="background-color: grey"
             >
-              <span v-if="!linkVehicleLoader">Link</span>
-              <div
-                v-if="linkVehicleLoader"
-                class="loader"
-              />
+              <span v-if="signAgreementLoaderId !== id">Sign</span>
+              <div v-else class="loader" />
             </button>
             <button
-              v-if="linked"
+              v-if="state.Unsigned === null && ownPrincipal === vh_provider.toText()"
+              class="link-btn"
+              style="background-color: grey"
+              disabled
+            >
+              Unsigned
+            </button>
+            <button
+              v-if="state.Unsigned !== null"
               class="link-btn"
               style="background-color: green"
+              disabled
             >
-              Linked
+              Signed
             </button>
+          </td>
+          <td v-if="vehicleToLink">
+            <button v-if="!linked" class="link-btn" @click="() => linkVehicle(id)">
+              <span v-if="!linkVehicleLoader">Link</span>
+              <div v-if="linkVehicleLoader" class="loader" />
+            </button>
+            <button v-if="linked" class="link-btn" style="background-color: green">Linked</button>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p v-else>
-    There are no agreements at the moment.
-  </p>
+  <p v-else>There are no agreements at the moment.</p>
 
-  <div
-    v-if="errorText !== ''"
-    class="error alert"
-  >
+  <div v-if="errorText !== ''" class="error alert">
     {{ errorText }}
   </div>
 </template>
@@ -157,5 +176,9 @@ export default {
 
 .alert {
   margin: 20px 0 20px 0;
+}
+
+.link-btn[disabled] {
+  cursor: default;
 }
 </style>

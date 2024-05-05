@@ -33,25 +33,14 @@ export default {
   <header>
     <nav>
       <a href="/">
-        <img
-          class="logo"
-          alt="Staex logo"
-          src="@/assets/logo-light.svg"
-        >
+        <img class="logo" alt="Staex logo" src="@/assets/logo-light.svg" />
       </a>
       <ul>
         <li>
-          <RouterLink to="/firmwares">
-            Firmwares
-          </RouterLink>
-          <RouterLink to="/agreements">
-            Agreements
-          </RouterLink>
+          <RouterLink to="/firmwares"> Firmwares </RouterLink>
+          <RouterLink to="/agreements"> Agreements </RouterLink>
         </li>
-        <li
-          class="mouse-pointer"
-          @click="logout()"
-        >
+        <li class="mouse-pointer" @click="logout()">
           <!-- We need tag <a> to make it style like other menu entities. -->
           <a>Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a>
         </li>

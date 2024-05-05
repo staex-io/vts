@@ -88,37 +88,23 @@ export default {
 
 <template>
   <h1>Firmwares</h1>
-  <div
-    v-if="fetchUserLoader"
-    class="warning alert loader-container"
-  >
+  <div v-if="fetchUserLoader" class="warning alert loader-container">
     <div class="loader" />
     Fetching active firmware status...
   </div>
   <div>
-    <p
-      v-if="activeRequestText !== ''"
-      class="warning alert"
-    >
+    <p v-if="activeRequestText !== ''" class="warning alert">
       {{ activeRequestText }}
     </p>
   </div>
 
-  <button
-    style="margin-bottom: 25px"
-    @click="request"
-  >
+  <button style="margin-bottom: 25px" @click="request">
     <span v-if="!requestNewLoader">Request new firmware</span>
-    <div
-      v-if="requestNewLoader"
-      class="loader"
-    />
+    <div v-if="requestNewLoader" class="loader" />
   </button>
 
   <div v-if="!fetchUserLoader && vehicles.length">
-    <h2 style="margin-bottom: 25px">
-      Available firmwares
-    </h2>
+    <h2 style="margin-bottom: 25px">Available firmwares</h2>
     <table>
       <thead>
         <tr>
@@ -129,17 +115,11 @@ export default {
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="{ agreement, identity, arch, firmware } in vehicles"
-          :key="identity"
-        >
+        <tr v-for="{ agreement, identity, arch, firmware } in vehicles" :key="identity">
           <td>{{ identity.toString() }}</td>
           <td>{{ arch }}</td>
           <td style="text-align: right">
-            <button
-              class="action-btn"
-              @click="() => downloadFirmware(identity, arch, firmware)"
-            >
+            <button class="action-btn" @click="() => downloadFirmware(identity, arch, firmware)">
               Download
             </button>
           </td>
@@ -151,11 +131,7 @@ export default {
             >
               Link
             </button>
-            <button
-              v-else
-              class="action-btn"
-              @click="() => goToAgreement(agreement)"
-            >
+            <button v-else class="action-btn" @click="() => goToAgreement(agreement)">
               Agreement
             </button>
           </td>
@@ -163,20 +139,12 @@ export default {
       </tbody>
     </table>
   </div>
-  <p v-else>
-    There are no vehicles at the moment.
-  </p>
+  <p v-else>There are no vehicles at the moment.</p>
 
-  <div
-    v-if="successText !== ''"
-    class="success alert"
-  >
+  <div v-if="successText !== ''" class="success alert">
     {{ successText }}
   </div>
-  <div
-    v-if="errorText !== ''"
-    class="error alert"
-  >
+  <div v-if="errorText !== ''" class="error alert">
     {{ errorText }}
   </div>
 </template>
