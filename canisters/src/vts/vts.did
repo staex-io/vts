@@ -24,6 +24,7 @@ type User = record {
 type Vehicle = record {
   owner : principal;
   arch : text;
+  agreement : opt nat;
   firmware : blob;
   identity : principal;
 };

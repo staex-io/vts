@@ -70,13 +70,17 @@ export default {
       )
       document.body.removeChild(link)
     },
-    async linkFirmware(identity) {
+    linkFirmware(identity) {
       router.push({
         name: 'vehicleLink',
         params: {
           vehicle: identity,
         },
       })
+    },
+    goToAgreement(agreement) {
+      console.log(agreement)
+      alert('In future redirect to the agreement will be implemented!')
     },
   },
 }
@@ -126,12 +130,12 @@ export default {
       </thead>
       <tbody>
         <tr
-          v-for="{ identity, arch, firmware } in vehicles"
+          v-for="{ agreement, identity, arch, firmware } in vehicles"
           :key="identity"
         >
           <td>{{ identity.toString() }}</td>
           <td>{{ arch }}</td>
-          <td style="text-align: center">
+          <td style="text-align: right">
             <button
               class="action-btn"
               @click="() => downloadFirmware(identity, arch, firmware)"
@@ -139,12 +143,20 @@ export default {
               Download
             </button>
           </td>
-          <td style="text-align: center">
+          <td style="text-align: right">
             <button
+              v-if="agreement.length === 0"
               class="action-btn"
               @click="() => linkFirmware(identity)"
             >
               Link
+            </button>
+            <button
+              v-else
+              class="action-btn"
+              @click="() => goToAgreement(agreement)"
+            >
+              Agreement
             </button>
           </td>
         </tr>

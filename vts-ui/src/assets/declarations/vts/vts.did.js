@@ -34,6 +34,7 @@ export const idlFactory = ({ IDL }) => {
   const Vehicle = IDL.Record({
     'owner' : IDL.Principal,
     'arch' : IDL.Text,
+    'agreement' : IDL.Opt(IDL.Nat),
     'firmware' : IDL.Vec(IDL.Nat8),
     'identity' : IDL.Principal,
   });

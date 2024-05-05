@@ -82,6 +82,7 @@ impl_storable!(User);
 #[derive(CandidType, Deserialize, Debug)]
 struct Vehicle {
     owner: Principal,
+    agreement: Option<u128>,
     identity: Principal,
     arch: String,
     firmware: Vec<u8>,
@@ -157,6 +158,7 @@ fn upload_firmware(
             vehicle,
             Vehicle {
                 owner: vh_customer,
+                agreement: None,
                 identity: vehicle,
                 arch,
                 firmware,
@@ -269,27 +271,35 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn link_vehicle(agreement_id: u128, vehicle: Principal) -> VTSResult<()> {
+fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
+
+    VEHICLES.with(|vehicles| {
+        let mut vehicle = vehicles.borrow_mut().get(&vehicle_identity).ok_or(Error::NotFound)?;
+
+        if caller != vehicle.owner {
+            return Err(Error::InvalidSigner);
+        }
+        if vehicle.agreement.is_some() {
+            return Err(Error::AlreadyExists);
+        }
+
+        vehicle.agreement = Some(agreement_id);
+        vehicles.borrow_mut().insert(vehicle_identity, vehicle);
+
+        Ok(())
+    })?;
 
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
 
-        VEHICLES.with(|vehicles| {
-            let vehicle = vehicles.borrow().get(&vehicle).ok_or(Error::NotFound)?;
-            if caller != vehicle.owner {
-                return Err(Error::InvalidSigner);
-            }
-            Ok(())
-        })?;
-
-        if agreement.vehicles.contains_key(&vehicle) {
+        if agreement.vehicles.contains_key(&vehicle_identity) {
             return Err(Error::AlreadyExists);
         }
 
-        agreement.vehicles.insert(vehicle, ());
+        agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
 
         Ok(())

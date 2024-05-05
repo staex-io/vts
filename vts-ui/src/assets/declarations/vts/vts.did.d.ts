@@ -42,6 +42,7 @@ export interface User {
 export interface Vehicle {
   'owner' : Principal,
   'arch' : string,
+  'agreement' : [] | [bigint],
   'firmware' : Uint8Array | number[],
   'identity' : Principal,
 }
