@@ -158,8 +158,4 @@ export default {
   margin: 5px;
   padding: 2px 25px 2px 25px;
 }
-
-.action-btn:hover {
-  background-color: black;
-}
 </style>

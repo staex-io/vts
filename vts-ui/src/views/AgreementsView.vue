@@ -10,11 +10,11 @@ export default {
       agreements: [],
       ownPrincipal: '',
 
-      linkVehicleLoader: '',
+      linkVehicleLoaderId: 0,
       vehicleToLink: '',
-      linked: false,
+      linkedId: 0,
 
-      signAgreementLoader: '',
+      signAgreementLoaderId: 0,
       signed: false,
 
       errorText: '',
@@ -41,8 +41,12 @@ export default {
       })
     },
     async linkVehicle(id) {
-      if (this.linkVehicleLoader) return
-      this.linkVehicleLoader = true
+      if (this.linkedId !== 0) {
+        this.errorText = 'You already linked this vehicle to an agreement.'
+        return
+      }
+      if (this.linkVehicleLoaderId !== 0) return
+      this.linkVehicleLoaderId = id
       this.errorText = ''
 
       if (this.$route.name === 'agreements') {
@@ -53,17 +57,17 @@ export default {
       const vtsClient = await initVTSClient()
       let vehicle = Principal.fromText(this.vehicleToLink)
       let res = await vtsClient.link_vehicle(id, vehicle)
-      if (res.Ok !== undefined) this.linked = true
+      if (res.Ok !== undefined) this.linkedId = id
       if (res.Err !== undefined && res.Err.AlreadyExists !== undefined) {
-        this.linked = true
+        this.linkedId = id
       } else if (res.Err !== undefined)
         this.errorText = 'Failed to link vehicle to the agreement. Try again later.'
 
-      this.linkVehicleLoader = false
+      this.linkVehicleLoaderId = 0
     },
     async signAgreement(id) {
-      if (this.signAgreementLoader) return
-      this.signAgreementLoader = true
+      if (this.signAgreementLoaderId !== 0) return
+      this.signAgreementLoaderId = id
 
       const vtsClient = await initVTSClient()
       const res = await vtsClient.sign_agreement(id)
@@ -77,7 +81,7 @@ export default {
       } else if (res.Err !== undefined)
         this.errorText = 'Failed to sign the agreement. Try again later.'
 
-      this.signAgreementLoader = false
+      this.signAgreementLoaderId = 0
     },
   },
 }
@@ -125,7 +129,6 @@ export default {
               v-if="state.Unsigned === null && ownPrincipal === vh_customer.toText()"
               class="link-btn"
               @click="() => signAgreement(id)"
-              style="background-color: grey"
             >
               <span v-if="signAgreementLoaderId !== id">Sign</span>
               <div v-else class="loader" />
@@ -133,26 +136,20 @@ export default {
             <button
               v-if="state.Unsigned === null && ownPrincipal === vh_provider.toText()"
               class="link-btn"
-              style="background-color: grey"
               disabled
             >
               Unsigned
             </button>
-            <button
-              v-if="state.Unsigned !== null"
-              class="link-btn"
-              style="background-color: green"
-              disabled
-            >
+            <button v-if="state.Unsigned !== null" disabled class="link-btn success-btn">
               Signed
             </button>
           </td>
           <td v-if="vehicleToLink">
-            <button v-if="!linked" class="link-btn" @click="() => linkVehicle(id)">
-              <span v-if="!linkVehicleLoader">Link</span>
-              <div v-if="linkVehicleLoader" class="loader" />
+            <button v-if="linkedId !== id" class="link-btn" @click="() => linkVehicle(id)">
+              <span v-if="linkVehicleLoaderId !== id">Link</span>
+              <div v-else class="loader" />
             </button>
-            <button v-if="linked" class="link-btn" style="background-color: green">Linked</button>
+            <button v-else class="link-btn success-btn" disabled>Linked</button>
           </td>
         </tr>
       </tbody>
@@ -170,15 +167,7 @@ export default {
   padding: 2px 25px 2px 25px;
 }
 
-.link-btn:hover {
-  background-color: black;
-}
-
 .alert {
   margin: 20px 0 20px 0;
-}
-
-.link-btn[disabled] {
-  cursor: default;
 }
 </style>
