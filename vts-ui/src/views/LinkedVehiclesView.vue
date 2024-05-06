@@ -56,7 +56,6 @@ export default {
 
         const agreementIdStr = vehicleDetails.agreement[0]
         const agreementId = BigInt(agreementIdStr)
-        console.log('Agreement ID:', agreementId)
         await this.getVehiclesByAgreement(agreementId)
       } else if (vehicleResponse.Err !== undefined) {
         this.errorText = `Failed to fetch details for vehicle ${vehicleIdentity}.`
@@ -67,7 +66,6 @@ export default {
     async getVehiclesByAgreement(agreementId) {
       const vtsClient = await initVTSClient()
       const response = await vtsClient.get_vehicles_by_agreement(agreementId)
-      console.log(response)
 
       if (response.Ok !== undefined) {
         this.vehiclesByAgreement = response.Ok.map((vehicle) => vehicle.toString())
