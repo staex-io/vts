@@ -100,7 +100,19 @@ button {
 }
 
 button:hover {
-  background-color: var(--staex-metallic-gold);
+  background-color: var(--staex-dark-pacific-blue);
+}
+
+button:disabled {
+  cursor: default;
+}
+
+button:disabled:hover {
+  background-color: var(--staex-gray);
+}
+
+.success-btn {
+  background-color: var(--staex-green) !important;
 }
 
 .alert {

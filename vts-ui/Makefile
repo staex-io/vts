@@ -7,8 +7,9 @@ new_dep:
 format:
 	./run.sh bun format
 
-lint: format
+lint:
 	./run.sh bun lint
+	make format
 
 run:
 	./run.sh bun dev --host 0.0.0.0
