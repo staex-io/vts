@@ -70,7 +70,7 @@ export default {
       console.log(response)
 
       if (response.Ok !== undefined) {
-        this.vehiclesByAgreement = Object.keys(response.Ok).map((principal) => principal.toString())
+        this.vehiclesByAgreement = response.Ok.map((vehicle) => vehicle.toString())
       } else {
         this.vehiclesByAgreement = []
         this.errorText = `Failed to fetch vehicles for agreement ${agreementId}.`
