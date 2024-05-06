@@ -39,6 +39,7 @@ export default {
         <li>
           <RouterLink to="/firmwares"> Firmwares </RouterLink>
           <RouterLink to="/agreements"> Agreements </RouterLink>
+          <RouterLink to="/vehicles"> Vehicles </RouterLink>
         </li>
         <li class="mouse-pointer" @click="logout()">
           <!-- We need tag <a> to make it style like other menu entities. -->
