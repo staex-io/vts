@@ -51,6 +51,11 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
+
+    static ADMINS: RefCell<StableBTreeMap<Principal, Admin, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -64,7 +69,14 @@ pub enum Error {
     AlreadyExists,
     NotFound,
     InvalidSigner,
+    Unauthorized,
 }
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Admin {
+    public_key: Principal,
+}
+impl_storable!(Admin);
 
 #[derive(CandidType, Deserialize, Debug)]
 enum AgreementState {
@@ -107,6 +119,24 @@ struct AgreementConditions {
     gas_price: String,
 }
 
+#[ic_cdk::update]
+fn add_admin(new_admin: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ADMINS.with(|admins| {
+        if admins.borrow().contains_key(&caller) {
+            admins.borrow_mut().insert(
+                new_admin,
+                Admin {
+                    public_key: new_admin,
+                },
+            );
+            Ok(())
+        } else {
+            Err(Error::Unauthorized)
+        }
+    })
+}
+
 #[ic_cdk::query]
 fn get_user() -> VTSResult<User> {
     let caller = ic_cdk::api::caller();
@@ -116,15 +146,21 @@ fn get_user() -> VTSResult<User> {
 #[ic_cdk::update]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
-    ic_cdk::println!("{} is requested firmware", caller);
-    FIRMWARE_REQUESTS.with(|requests| {
-        if requests.borrow_mut().contains_key(&caller) {
-            return Err(Error::AlreadyExists);
+    ADMINS.with(|admins| {
+        if admins.borrow().contains_key(&caller) {
+            ic_cdk::println!("{} is requested firmware", caller);
+            FIRMWARE_REQUESTS.with(|requests| {
+                if requests.borrow_mut().contains_key(&caller) {
+                    return Err(Error::AlreadyExists);
+                }
+                requests.borrow_mut().insert(caller, ());
+                Ok(())
+            })?;
+            Ok(())
+        } else {
+            Err(Error::Unauthorized)
         }
-        requests.borrow_mut().insert(caller, ());
-        Ok(())
-    })?;
-    Ok(())
+    })
 }
 
 // This method can return first available firmware request.
