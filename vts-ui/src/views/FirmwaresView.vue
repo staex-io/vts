@@ -1,6 +1,7 @@
 <script>
 import router from '@/router'
 import { initVTSClient } from '@/icp'
+import { AgreementFirmwaresRouteName } from '@/constants'
 
 export default {
   data() {
@@ -11,6 +12,8 @@ export default {
 
       requestNewLoader: false,
 
+      agreementId: 0,
+
       successText: '',
       errorText: '',
     }
@@ -19,17 +22,24 @@ export default {
     this.fetchUserLoader = true
 
     const vtsClient = await initVTSClient()
+    let rawVehicles = []
 
-    const requests = await vtsClient.get_firmware_requests_by_user()
-    if (requests.Ok === null)
-      this.activeRequestText =
-        'You have active firmware request. Please wait while Staex gateway is build new firmware.'
+    if (this.$route.name === AgreementFirmwaresRouteName) {
+      const agreementId = Number(this.$route.params.agreement)
+      this.agreementId = agreementId
+      const vehicles = await vtsClient.get_vehicles_by_agreement(agreementId)
+      if (vehicles.Ok !== undefined) rawVehicles = vehicles.Ok
+    } else {
+      const requests = await vtsClient.get_firmware_requests_by_user()
+      if (requests.Ok === null)
+        this.activeRequestText =
+          'You have active firmware request. Please wait while Staex gateway is build new firmware.'
+      const user = await vtsClient.get_user()
+      if (user.Ok !== undefined) rawVehicles = user.Ok.vehicles
+    }
 
-    const user = await vtsClient.get_user()
-    if (user.Ok !== undefined) this.vehicles = user.Ok.vehicles
-
-    for (let i = 0; i < this.vehicles.length; i++) {
-      const vehicle = (await vtsClient.get_vehicle(this.vehicles[i][0])).Ok
+    for (let i = 0; i < rawVehicles.length; i++) {
+      const vehicle = (await vtsClient.get_vehicle(rawVehicles[i][0])).Ok
       this.vehicles[i] = vehicle
     }
 
@@ -98,20 +108,31 @@ export default {
     </p>
   </div>
 
-  <button style="margin-bottom: 25px" @click="request">
+  <button v-if="agreementId === 0" style="margin-bottom: 25px" @click="request">
     <span v-if="!requestNewLoader">Request new firmware</span>
     <div v-if="requestNewLoader" class="loader" />
   </button>
 
   <div v-if="!fetchUserLoader && vehicles.length">
-    <h2 style="margin-bottom: 25px">Available firmwares</h2>
+    <h2 v-if="agreementId === 0" style="margin-bottom: 25px">Available firmwares</h2>
+    <h2 v-if="agreementId !== 0" style="margin-bottom: 5px">
+      Available firmwares for the requested agreement
+    </h2>
+    <button
+      v-if="agreementId !== 0"
+      class="action-btn"
+      style="margin-bottom: 25px"
+      @click="() => goToAgreement(agreementId)"
+    >
+      Agreement
+    </button>
     <table>
       <thead>
         <tr>
           <th>Internet Identity</th>
           <th>Arch</th>
           <th />
-          <th />
+          <th v-if="agreementId === 0" />
         </tr>
       </thead>
       <tbody>
@@ -123,7 +144,7 @@ export default {
               Download
             </button>
           </td>
-          <td style="text-align: right">
+          <td v-if="agreementId === 0" style="text-align: right">
             <button
               v-if="agreement.length === 0"
               class="action-btn"
@@ -155,7 +176,6 @@ export default {
 }
 
 .action-btn {
-  margin: 5px;
   padding: 2px 25px 2px 25px;
 }
 </style>

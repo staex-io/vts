@@ -1,7 +1,8 @@
 <script>
 import router from '@/router'
-import { initVTSClient, initAuthClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
+import { initVTSClient, initAuthClient } from '@/icp'
+import { AgreementsRouteName, AgreementFirmwaresRouteName } from '@/constants'
 
 export default {
   data() {
@@ -49,19 +50,21 @@ export default {
       this.linkVehicleLoaderId = id
       this.errorText = ''
 
-      if (this.$route.name === 'agreements') {
+      if (this.$route.name === AgreementsRouteName) {
         window.location.reload()
         return
       }
 
       const vtsClient = await initVTSClient()
-      let vehicle = Principal.fromText(this.vehicleToLink)
-      let res = await vtsClient.link_vehicle(id, vehicle)
+      const vehicle = Principal.fromText(this.vehicleToLink)
+      const res = await vtsClient.link_vehicle(id, vehicle)
       if (res.Ok !== undefined) this.linkedId = id
       if (res.Err !== undefined && res.Err.AlreadyExists !== undefined) {
         this.linkedId = id
       } else if (res.Err !== undefined)
-        this.errorText = 'Failed to link vehicle to the agreement. Try again later.'
+        if (res.Err.InvalidSigner !== undefined)
+          this.errorText = 'You cannot link vehicle if you created an agreement.'
+        else this.errorText = 'Failed to link vehicle to the agreement. Try again later.'
 
       this.linkVehicleLoaderId = 0
     },
@@ -79,9 +82,9 @@ export default {
     },
     goToAgreementVehicles(id) {
       router.push({
-        name: 'createAgreement',
+        name: AgreementFirmwaresRouteName,
         params: {
-          id,
+          agreement: id,
         },
       })
     },

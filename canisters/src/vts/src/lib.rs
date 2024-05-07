@@ -282,6 +282,10 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         if agreement.vehicles.contains_key(&vehicle_identity) {
             return Err(Error::AlreadyExists);
         }
+        if caller != agreement.vh_customer {
+            ic_cdk::println!("vehicle provider tried to link vehicle to its own agreement");
+            return Err(Error::InvalidSigner);
+        }
 
         agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
