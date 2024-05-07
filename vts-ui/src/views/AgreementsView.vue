@@ -15,7 +15,7 @@ export default {
       linkedId: 0,
 
       signAgreementLoaderId: 0,
-      signed: false,
+      signedId: 0,
 
       errorText: '',
     }
@@ -72,16 +72,18 @@ export default {
       const vtsClient = await initVTSClient()
       const res = await vtsClient.sign_agreement(id)
 
-      if (res.Ok !== undefined) {
-        this.signed = true
-      }
-      if (this.$route.name === 'agreements') {
-        window.location.reload()
-        return
-      } else if (res.Err !== undefined)
-        this.errorText = 'Failed to sign the agreement. Try again later.'
+      if (res.Ok !== undefined) this.signedId = id
+      if (res.Err !== undefined) this.errorText = 'Failed to sign the agreement. Try again later.'
 
       this.signAgreementLoaderId = 0
+    },
+    goToAgreementVehicles(id) {
+      router.push({
+        name: 'createAgreement',
+        params: {
+          id,
+        },
+      })
     },
   },
 }
@@ -99,7 +101,10 @@ export default {
   </div>
 
   <div v-if="!fetchAgreementsLoader && agreements.length">
-    <h2 style="margin-bottom: 25px">Available agreements</h2>
+    <h2 style="margin-bottom: 5px">Available agreements</h2>
+    <p style="margin-bottom: 25px">
+      <i>By pressing on agreement name you can see its vehicles</i>
+    </p>
     <table>
       <thead>
         <tr>
@@ -107,7 +112,7 @@ export default {
           <th>Entity</th>
           <th>Daily usage fee</th>
           <th>Gas price</th>
-          <th>State</th>
+          <th />
           <th v-if="vehicleToLink" />
         </tr>
       </thead>
@@ -116,7 +121,9 @@ export default {
           v-for="{ id, name, vh_provider, vh_customer, conditions, state } in agreements"
           :key="id"
         >
-          <td>{{ name }}</td>
+          <td @click="() => goToAgreementVehicles(id)">
+            {{ name }}
+          </td>
           <td>
             {{
               ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
@@ -126,7 +133,9 @@ export default {
           <td>{{ conditions.gas_price }}</td>
           <td>
             <button
-              v-if="state.Unsigned === null && ownPrincipal === vh_customer.toText()"
+              v-if="
+                state.Unsigned === null && ownPrincipal === vh_customer.toText() && signedId != id
+              "
               class="link-btn"
               @click="() => signAgreement(id)"
             >
@@ -140,7 +149,11 @@ export default {
             >
               Unsigned
             </button>
-            <button v-if="state.Unsigned !== null" disabled class="link-btn success-btn">
+            <button
+              v-if="state.Unsigned !== null || signedId == id"
+              disabled
+              class="link-btn success-btn"
+            >
               Signed
             </button>
           </td>

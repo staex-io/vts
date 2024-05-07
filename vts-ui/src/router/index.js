@@ -4,7 +4,6 @@ import { initAuthClient } from '@/icp'
 import FirmwaresView from '@/views/FirmwaresView.vue'
 import AgreementsView from '@/views/AgreementsView.vue'
 import CreateAgreementView from '@/views/CreateAgreementView.vue'
-import LinkedVehiclesView from '@/views/LinkedVehiclesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,11 +32,6 @@ const router = createRouter({
       path: '/vehicle/link/:vehicle',
       name: 'vehicleLink',
       component: AgreementsView,
-    },
-    {
-      path: '/vehicles/',
-      name: 'vehicles',
-      component: LinkedVehiclesView,
     },
   ],
 })
