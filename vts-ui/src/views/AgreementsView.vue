@@ -1,7 +1,8 @@
 <script>
 import router from '@/router'
-import { initVTSClient, initAuthClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
+import { initVTSClient, initAuthClient } from '@/icp'
+import { AgreementsRouteName, AgreementFirmwaresRouteName } from '@/constants'
 
 export default {
   data() {
@@ -15,7 +16,7 @@ export default {
       linkedId: 0,
 
       signAgreementLoaderId: 0,
-      signed: false,
+      signedId: 0,
 
       errorText: '',
     }
@@ -49,19 +50,21 @@ export default {
       this.linkVehicleLoaderId = id
       this.errorText = ''
 
-      if (this.$route.name === 'agreements') {
+      if (this.$route.name === AgreementsRouteName) {
         window.location.reload()
         return
       }
 
       const vtsClient = await initVTSClient()
-      let vehicle = Principal.fromText(this.vehicleToLink)
-      let res = await vtsClient.link_vehicle(id, vehicle)
+      const vehicle = Principal.fromText(this.vehicleToLink)
+      const res = await vtsClient.link_vehicle(id, vehicle)
       if (res.Ok !== undefined) this.linkedId = id
       if (res.Err !== undefined && res.Err.AlreadyExists !== undefined) {
         this.linkedId = id
       } else if (res.Err !== undefined)
-        this.errorText = 'Failed to link vehicle to the agreement. Try again later.'
+        if (res.Err.InvalidSigner !== undefined)
+          this.errorText = 'You cannot link vehicle if you created an agreement.'
+        else this.errorText = 'Failed to link vehicle to the agreement. Try again later.'
 
       this.linkVehicleLoaderId = 0
     },
@@ -72,16 +75,18 @@ export default {
       const vtsClient = await initVTSClient()
       const res = await vtsClient.sign_agreement(id)
 
-      if (res.Ok !== undefined) {
-        this.signed = true
-      }
-      if (this.$route.name === 'agreements') {
-        window.location.reload()
-        return
-      } else if (res.Err !== undefined)
-        this.errorText = 'Failed to sign the agreement. Try again later.'
+      if (res.Ok !== undefined) this.signedId = id
+      if (res.Err !== undefined) this.errorText = 'Failed to sign the agreement. Try again later.'
 
       this.signAgreementLoaderId = 0
+    },
+    goToAgreementVehicles(id) {
+      router.push({
+        name: AgreementFirmwaresRouteName,
+        params: {
+          agreement: id,
+        },
+      })
     },
   },
 }
@@ -99,7 +104,10 @@ export default {
   </div>
 
   <div v-if="!fetchAgreementsLoader && agreements.length">
-    <h2 style="margin-bottom: 25px">Available agreements</h2>
+    <h2 style="margin-bottom: 5px">Available agreements</h2>
+    <p style="margin-bottom: 25px">
+      <i>By pressing on agreement name you can see its vehicles</i>
+    </p>
     <table>
       <thead>
         <tr>
@@ -107,7 +115,7 @@ export default {
           <th>Entity</th>
           <th>Daily usage fee</th>
           <th>Gas price</th>
-          <th>State</th>
+          <th />
           <th v-if="vehicleToLink" />
         </tr>
       </thead>
@@ -116,7 +124,9 @@ export default {
           v-for="{ id, name, vh_provider, vh_customer, conditions, state } in agreements"
           :key="id"
         >
-          <td>{{ name }}</td>
+          <td @click="() => goToAgreementVehicles(id)">
+            {{ name }}
+          </td>
           <td>
             {{
               ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
@@ -126,7 +136,9 @@ export default {
           <td>{{ conditions.gas_price }}</td>
           <td>
             <button
-              v-if="state.Unsigned === null && ownPrincipal === vh_customer.toText()"
+              v-if="
+                state.Unsigned === null && ownPrincipal === vh_customer.toText() && signedId != id
+              "
               class="link-btn"
               @click="() => signAgreement(id)"
             >
@@ -140,7 +152,11 @@ export default {
             >
               Unsigned
             </button>
-            <button v-if="state.Unsigned !== null" disabled class="link-btn success-btn">
+            <button
+              v-if="state.Unsigned !== null || signedId == id"
+              disabled
+              class="link-btn success-btn"
+            >
               Signed
             </button>
           </td>

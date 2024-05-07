@@ -1,7 +1,8 @@
 <script>
 import router from '@/router'
-import { initVTSClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
+import { initVTSClient } from '@/icp'
+import { AgreementsRouteName } from '@/constants'
 
 export default {
   data() {
@@ -23,8 +24,8 @@ export default {
       this.errorText = ''
 
       const vtsClient = await initVTSClient()
-      let vh_customer = Principal.fromText(this.vh_customer)
-      let res = await vtsClient.create_agreement(
+      const vh_customer = Principal.fromText(this.vh_customer)
+      const res = await vtsClient.create_agreement(
         this.name,
         vh_customer,
         this.daily_usage_fee.toString(),
@@ -32,7 +33,7 @@ export default {
       )
       if (res.Ok !== undefined) {
         router.push({
-          name: 'agreements',
+          name: AgreementsRouteName,
         })
       } else {
         this.errorText = 'Failed to create agreement. Try again later.'
