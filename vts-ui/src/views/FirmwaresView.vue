@@ -1,9 +1,17 @@
 <script>
 import router from '@/router'
 import { initVTSClient } from '@/icp'
-import { AgreementFirmwaresRouteName } from '@/constants'
+import { AgreementFirmwaresRouteName, VehicleLinkRouteName } from '@/constants'
 
 export default {
+  async beforeRouteLeave(to, from) {
+    const vtsClient = await initVTSClient()
+    if (from.name === AgreementFirmwaresRouteName) {
+      this.agreementId = 0
+      const rawVehicles = await this.fetchUserVehicles(vtsClient)
+      await this.prepareVehicles(vtsClient, rawVehicles)
+    }
+  },
   data() {
     return {
       fetchUserLoader: false,
@@ -30,22 +38,29 @@ export default {
       const vehicles = await vtsClient.get_vehicles_by_agreement(agreementId)
       if (vehicles.Ok !== undefined) rawVehicles = vehicles.Ok
     } else {
+      rawVehicles = await this.fetchUserVehicles(vtsClient)
+    }
+
+    await this.prepareVehicles(vtsClient, rawVehicles)
+
+    this.fetchUserLoader = false
+  },
+  methods: {
+    async prepareVehicles(vtsClient, rawVehicles) {
+      for (let i = 0; i < rawVehicles.length; i++) {
+        const vehicle = (await vtsClient.get_vehicle(rawVehicles[i][0])).Ok
+        this.vehicles[i] = vehicle
+      }
+    },
+    async fetchUserVehicles(vtsClient) {
       const requests = await vtsClient.get_firmware_requests_by_user()
       if (requests.Ok === null)
         this.activeRequestText =
           'You have active firmware request. Please wait while Staex gateway is build new firmware.'
       const user = await vtsClient.get_user()
-      if (user.Ok !== undefined) rawVehicles = user.Ok.vehicles
-    }
-
-    for (let i = 0; i < rawVehicles.length; i++) {
-      const vehicle = (await vtsClient.get_vehicle(rawVehicles[i][0])).Ok
-      this.vehicles[i] = vehicle
-    }
-
-    this.fetchUserLoader = false
-  },
-  methods: {
+      if (user.Ok !== undefined) return user.Ok.vehicles
+      throw 'failed to request user vehicles'
+    },
     cleanState() {
       this.successText = ''
       this.errorText = ''
@@ -82,7 +97,7 @@ export default {
     },
     linkFirmware(identity) {
       router.push({
-        name: 'vehicleLink',
+        name: VehicleLinkRouteName,
         params: {
           vehicle: identity,
         },
