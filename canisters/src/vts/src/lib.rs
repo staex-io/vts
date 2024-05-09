@@ -56,6 +56,11 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
     );
+
+    static ALLOWED_KEYS: RefCell<StableBTreeMap<Principal, (), Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -119,48 +124,176 @@ struct AgreementConditions {
     gas_price: String,
 }
 
+fn is_admin(caller: Principal) -> Result<(), Error> {
+    ADMINS.with(|admins| {
+        if !admins.borrow().contains_key(&caller) {
+            Err(Error::Unauthorized)
+        } else {
+            Ok(())
+        }
+    })
+}
+
+#[ic_cdk::update]
+fn add_allowed_key(new_key: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+
+    // Check if the caller is an admin
+    is_admin(caller)?;
+
+    // Check if the new key already exists
+    ALLOWED_KEYS.with(|keys| {
+        if keys.borrow().contains_key(&new_key) {
+            Err(Error::AlreadyExists)
+        } else {
+            Ok(())
+        }
+    })?;
+
+    // Add the new key
+    ALLOWED_KEYS.with(|keys| {
+        keys.borrow_mut().insert(new_key, ());
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn remove_allowed_key(key: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+
+    is_admin(caller)?;
+
+    // Check if the key exists
+    ALLOWED_KEYS.with(|keys| {
+        if !keys.borrow().contains_key(&key) {
+            Err(Error::NotFound)
+        } else {
+            Ok(())
+        }
+    })?;
+
+    // Remove the key
+    ALLOWED_KEYS.with(|keys| {
+        keys.borrow_mut().remove(&key);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn register_user() -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+
+    if USERS.with(|users| users.borrow().contains_key(&caller)) {
+        return Err(Error::AlreadyExists);
+    }
+
+    USERS.with(|users| {
+        users.borrow_mut().insert(
+            caller,
+            User {
+                vehicles: HashMap::new(),
+                agreements: HashMap::new(),
+            },
+        );
+    });
+
+    Ok(())
+}
+
 #[ic_cdk::update]
 fn add_admin(new_admin: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ADMINS.with(|admins| {
-        if admins.borrow().contains_key(&caller) {
-            admins.borrow_mut().insert(
-                new_admin,
-                Admin {
-                    public_key: new_admin,
-                },
-            );
+        if admins.borrow().is_empty() {
+            admins.borrow_mut().insert(caller, Admin { public_key: caller });
+            add_allowed_key(caller)?;
             Ok(())
         } else {
-            Err(Error::Unauthorized)
+            // Existing canister, check authorization
+            if admins.borrow().contains_key(&caller) {
+                admins.borrow_mut().insert(
+                    new_admin,
+                    Admin {
+                        public_key: new_admin,
+                    },
+                );
+                Ok(())
+            } else {
+                Err(Error::Unauthorized)
+            }
         }
+    })
+}
+
+#[ic_cdk::update]
+fn delete_admin(admin: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ADMINS.with(|admins| {
+        if !admins.borrow().contains_key(&caller) {
+            return Err(Error::Unauthorized);
+        }
+
+        if !admins.borrow().contains_key(&admin) {
+            return Err(Error::NotFound);
+        }
+
+        if admin == caller {
+            return Err(Error::Unauthorized);
+        }
+
+        admins.borrow_mut().remove(&admin);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn delete_user(user: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+
+    is_admin(caller)?;
+
+    // Check if the user to be deleted exists
+    let _ = USERS.with(|users| {
+        if !users.borrow().contains_key(&user) {
+            return Err(Error::NotFound);
+        }
+        Ok(())
+    });
+
+    // Remove the user
+    USERS.with(|users| users.borrow_mut().remove(&user));
+    Ok(())
+}
+
+fn is_registered_user(caller: Principal) -> Result<(), Error> {
+    USERS.with(|users| {
+        if !users.borrow().contains_key(&caller) {
+            return Err(Error::Unauthorized);
+        }
+        Ok(())
     })
 }
 
 #[ic_cdk::query]
 fn get_user() -> VTSResult<User> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))
 }
 
 #[ic_cdk::update]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
-    ADMINS.with(|admins| {
-        if admins.borrow().contains_key(&caller) {
-            ic_cdk::println!("{} is requested firmware", caller);
-            FIRMWARE_REQUESTS.with(|requests| {
-                if requests.borrow_mut().contains_key(&caller) {
-                    return Err(Error::AlreadyExists);
-                }
-                requests.borrow_mut().insert(caller, ());
-                Ok(())
-            })?;
-            Ok(())
-        } else {
-            Err(Error::Unauthorized)
+    is_registered_user(caller)?;
+    ic_cdk::println!("{} is requested firmware", caller);
+    FIRMWARE_REQUESTS.with(|requests| {
+        if requests.borrow_mut().contains_key(&caller) {
+            return Err(Error::AlreadyExists);
         }
-    })
+        requests.borrow_mut().insert(caller, ());
+        Ok(())
+    })?;
+    Ok(())
 }
 
 // This method can return first available firmware request.
@@ -176,6 +309,7 @@ fn get_firmware_requests() -> VTSResult<Principal> {
 #[ic_cdk::query]
 fn get_firmware_requests_by_user() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     FIRMWARE_REQUESTS.with(|requests| requests.borrow().get(&caller).ok_or(Error::NotFound))?;
     Ok(())
 }
@@ -225,6 +359,7 @@ fn upload_firmware(
 #[ic_cdk::query]
 fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
     if vehicle.owner != caller {
         return Err(Error::InvalidSigner);
@@ -241,6 +376,8 @@ fn create_agreement(
 ) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
+
+    is_registered_user(caller)?;
 
     let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
         let mut counter = counter.borrow_mut();
@@ -284,6 +421,8 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement signing by {}", caller);
 
+    is_registered_user(caller)?;
+    
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
 
@@ -349,6 +488,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
 #[ic_cdk::query]
 fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     let user = USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))?;
     let mut agreements = Vec::with_capacity(user.agreements.len());
     AGREEMENTS.with(|agreements_storage| {

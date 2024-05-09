@@ -46,11 +46,14 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [Result], []),
+    'add_allowed_key' : IDL.Func([IDL.Principal], [Result], []),
     'create_agreement' : IDL.Func(
         [IDL.Text, IDL.Principal, IDL.Text, IDL.Text],
         [Result_1],
         [],
       ),
+    'delete_admin' : IDL.Func([IDL.Principal], [Result], []),
+    'delete_user' : IDL.Func([IDL.Principal], [Result], []),
     'get_firmware_requests' : IDL.Func([], [Result_2], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result], ['query']),
     'get_user' : IDL.Func([], [Result_3], ['query']),
@@ -58,6 +61,8 @@ export const idlFactory = ({ IDL }) => {
     'get_vehicle' : IDL.Func([IDL.Principal], [Result_5], ['query']),
     'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_6], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result], []),
+    'register_user' : IDL.Func([IDL.Principal], [Result], []),
+    'remove_allowed_key' : IDL.Func([IDL.Principal], [Result], []),
     'request_firmware' : IDL.Func([], [Result], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result], []),
     'upload_firmware' : IDL.Func(
