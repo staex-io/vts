@@ -60,7 +60,7 @@ export const idlFactory = ({ IDL }) => {
     'get_vehicle' : IDL.Func([IDL.Principal], [Result_5], ['query']),
     'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_6], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result], []),
-    'register_user' : IDL.Func([], [Result], []),
+    'register_user' : IDL.Func([IDL.Principal], [Result], []),
     'request_firmware' : IDL.Func([], [Result], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result], []),
     'upload_firmware' : IDL.Func(

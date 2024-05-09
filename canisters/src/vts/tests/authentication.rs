@@ -10,9 +10,8 @@ mod agent;
 async fn test_add_admin() {
     let (agent, canister_id) = init_agent().await;
 
-    let new_key = agent.get_principal().unwrap();
-
-    let result = add_admin(&agent, canister_id, new_key).await;
+    let new_admin = agent.get_principal().unwrap();
+    let result = add_admin(&agent, canister_id, new_admin).await;
     assert!(result.is_ok(), "Should add new admin");
 }
 

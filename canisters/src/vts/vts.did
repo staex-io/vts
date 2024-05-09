@@ -46,7 +46,7 @@ service : {
   get_vehicle : (principal) -> (Result_5) query;
   get_vehicles_by_agreement : (nat) -> (Result_6) query;
   link_vehicle : (nat, principal) -> (Result);
-  register_user : () -> (Result);
+  register_user : (principal) -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
   upload_firmware : (principal, principal, text, blob) -> (Result);

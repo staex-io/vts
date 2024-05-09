@@ -62,7 +62,7 @@ export interface _SERVICE {
   'get_vehicle' : ActorMethod<[Principal], Result_5>,
   'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_6>,
   'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
-  'register_user' : ActorMethod<[], Result>,
+  'register_user' : ActorMethod<[Principal], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,
   'upload_firmware' : ActorMethod<

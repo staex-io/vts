@@ -45,5 +45,29 @@ pub async fn register_user(agent: &Agent, canister_id: Principal, user: Principa
         .call_and_wait()
         .await
         .unwrap();
-    Decode!(res.as_slice(), VTSResult<()>).unwrap().unwrap();
+    let res = Decode!(res.as_slice(), VTSResult<()>).unwrap();
+    if let Err(e) = res {
+        match e {
+            vts::Error::AlreadyExists => (),
+            e => panic!("{:?}", e),
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub async fn upload_firmware(
+    agent: &Agent,
+    canister_id: Principal,
+    vh_customer: Principal,
+    vehicle: Principal,
+) -> VTSResult<()> {
+    let firmware: Vec<u8> = vec![0, 1, 2];
+    let res = agent
+        .update(&canister_id, "upload_firmware")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&vh_customer, &vehicle, &"arm64".to_string(), &firmware).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+    Decode!(res.as_slice(), VTSResult<()>).unwrap()
 }
