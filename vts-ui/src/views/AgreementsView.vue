@@ -2,9 +2,22 @@
 import router from '@/router'
 import { Principal } from '@dfinity/principal'
 import { initVTSClient, initAuthClient } from '@/icp'
-import { AgreementsRouteName, AgreementFirmwaresRouteName } from '@/constants'
+import {
+  AgreementFirmwaresRouteName,
+  AgreementsRouteName,
+  VehicleLinkRouteName,
+  CreateAgreementRouteName,
+} from '@/constants'
 
 export default {
+  beforeRouteLeave(to, from) {
+    if (from.name === VehicleLinkRouteName) {
+      this.vehicleToLink = ''
+    }
+    if (from.name === AgreementsRouteName) {
+      this.vehicleToLink = to.params.vehicle
+    }
+  },
   data() {
     return {
       fetchAgreementsLoader: false,
@@ -38,7 +51,7 @@ export default {
   methods: {
     goToCreateAgreementPage() {
       router.push({
-        name: 'createAgreement',
+        name: CreateAgreementRouteName,
       })
     },
     async linkVehicle(id) {
@@ -124,10 +137,10 @@ export default {
           v-for="{ id, name, vh_provider, vh_customer, conditions, state } in agreements"
           :key="id"
         >
-          <td @click="() => goToAgreementVehicles(id)">
+          <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
             {{ name }}
           </td>
-          <td>
+          <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
             {{
               ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
             }}

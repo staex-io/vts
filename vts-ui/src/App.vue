@@ -33,7 +33,7 @@ export default {
   <header>
     <nav>
       <a href="/">
-        <img class="logo" alt="Staex logo" src="@/assets/logo-light.svg" />
+        <img class="logo" alt="Staex logo" src="/favicon.svg" />
       </a>
       <ul>
         <li>
