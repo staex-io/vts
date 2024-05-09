@@ -162,36 +162,6 @@ async fn create_agreement(
     daily_usage_fee: &str,
     gas_price: &str,
 ) -> VTSResult<u128> {
-    let firmware: Vec<u8> = vec![0, 1, 2];
-
-    // By this request we initialize user record in smart contract for the vehicle provider.
-    let res = agent
-        .update(&canister_id, "upload_firmware")
-        .with_effective_canister_id(canister_id)
-        .with_arg(
-            Encode!(
-                &agent.get_principal().unwrap(), // this is our vehicle provider
-                &Principal::anonymous(),
-                &"arm64".to_string(),
-                &firmware
-            )
-            .unwrap(),
-        )
-        .call_and_wait()
-        .await
-        .unwrap();
-    Decode!(res.as_slice(), VTSResult<()>).unwrap().unwrap();
-
-    // By this request we initialize user record in smart contract for the vehicle customer.
-    let res = agent
-        .update(&canister_id, "upload_firmware")
-        .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(vh_customer, &Principal::anonymous(), &"arm64".to_string(), &firmware).unwrap())
-        .call_and_wait()
-        .await
-        .unwrap();
-    Decode!(res.as_slice(), VTSResult<()>).unwrap().unwrap();
-
     let response = agent
         .update(&canister_id, "create_agreement")
         .with_effective_canister_id(canister_id)

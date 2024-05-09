@@ -2,13 +2,18 @@ use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
 use vts::{Error, VTSResult};
 
-use crate::agent::init_agent;
+use crate::agent::{init_agent, register_user};
 
 mod agent;
 
 #[tokio::test]
 async fn test_firmware() {
     let (agent, canister_id) = init_agent().await;
+
+    let err = request_firmware(&agent, canister_id).await.unwrap_err();
+    assert_eq!(Error::Unauthorized, err);
+
+    register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
     let err = get_firmware_requests_by_user(&agent, canister_id).await.unwrap_err();
     assert_eq!(Error::NotFound, err);

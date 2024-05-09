@@ -158,17 +158,17 @@ fn delete_admin(admin: Principal) -> VTSResult<()> {
 }
 
 #[ic_cdk::update]
-fn register_user() -> VTSResult<()> {
+fn register_user(user: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     is_admin(caller)?;
 
-    if USERS.with(|users| users.borrow().contains_key(&caller)) {
+    if USERS.with(|users| users.borrow().contains_key(&user)) {
         return Err(Error::AlreadyExists);
     }
 
     USERS.with(|users| {
         users.borrow_mut().insert(
-            caller,
+            user,
             User {
                 vehicles: HashMap::new(),
                 agreements: HashMap::new(),
@@ -259,22 +259,9 @@ fn upload_firmware(
         )
     });
     USERS.with(|users| -> VTSResult<()> {
-        let user = users.borrow_mut().get(&vh_customer);
-        match user {
-            Some(mut user) => {
-                user.vehicles.insert(vehicle, ());
-                users.borrow_mut().insert(vh_customer, user);
-            }
-            None => {
-                users.borrow_mut().insert(
-                    vh_customer,
-                    User {
-                        vehicles: HashMap::from_iter(vec![(vehicle, ())]),
-                        agreements: HashMap::new(),
-                    },
-                );
-            }
-        }
+        let mut user = users.borrow_mut().get(&vh_customer).ok_or(Error::NotFound)?;
+        user.vehicles.insert(vehicle, ());
+        users.borrow_mut().insert(vh_customer, user);
         Ok(())
     })
 }
