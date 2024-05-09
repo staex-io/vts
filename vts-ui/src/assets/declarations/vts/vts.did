@@ -36,7 +36,6 @@ type Vehicle = record {
 };
 service : {
   add_admin : (principal) -> (Result);
-  add_allowed_key : (principal) -> (Result);
   create_agreement : (text, principal, text, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);
@@ -47,8 +46,7 @@ service : {
   get_vehicle : (principal) -> (Result_5) query;
   get_vehicles_by_agreement : (nat) -> (Result_6) query;
   link_vehicle : (nat, principal) -> (Result);
-  register_user : (principal) -> (Result);
-  remove_allowed_key : (principal) -> (Result);
+  register_user : () -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
   upload_firmware : (principal, principal, text, blob) -> (Result);

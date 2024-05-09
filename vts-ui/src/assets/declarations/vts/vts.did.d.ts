@@ -49,7 +49,6 @@ export interface Vehicle {
 }
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
-  'add_allowed_key' : ActorMethod<[Principal], Result>,
   'create_agreement' : ActorMethod<
     [string, Principal, string, string],
     Result_1
@@ -63,8 +62,7 @@ export interface _SERVICE {
   'get_vehicle' : ActorMethod<[Principal], Result_5>,
   'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_6>,
   'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
-  'register_user' : ActorMethod<[Principal], Result>,
-  'remove_allowed_key' : ActorMethod<[Principal], Result>,
+  'register_user' : ActorMethod<[], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,
   'upload_firmware' : ActorMethod<
