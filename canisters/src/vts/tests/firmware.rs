@@ -2,13 +2,15 @@ use candid::{Decode, Encode, Principal};
 use ic_agent::Agent;
 use vts::{Error, VTSResult};
 
-use crate::agent::init_agent;
+use crate::agent::{init_agent, register_user, upload_firmware};
 
 mod agent;
 
 #[tokio::test]
 async fn test_firmware() {
     let (agent, canister_id) = init_agent().await;
+
+    register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
     let err = get_firmware_requests_by_user(&agent, canister_id).await.unwrap_err();
     assert_eq!(Error::NotFound, err);
@@ -25,7 +27,9 @@ async fn test_firmware() {
     get_firmware_requests_by_user(&agent, canister_id).await.unwrap();
 
     // Upload firmware deletes current active user request.
-    upload_firmware(&agent, canister_id).await.unwrap();
+    upload_firmware(&agent, canister_id, agent.get_principal().unwrap(), Principal::anonymous())
+        .await
+        .unwrap();
     // That's why we can again make new firmware request.
     // Request new firmware.
     request_firmware(&agent, canister_id).await.unwrap();
@@ -50,26 +54,6 @@ async fn get_firmware_requests_by_user(agent: &Agent, canister_id: Principal) ->
         .update(&canister_id, "get_firmware_requests_by_user")
         .with_effective_canister_id(canister_id)
         .with_arg(Encode!(&()).unwrap())
-        .call_and_wait()
-        .await
-        .unwrap();
-    Decode!(res.as_slice(), VTSResult<()>).unwrap()
-}
-
-async fn upload_firmware(agent: &Agent, canister_id: Principal) -> VTSResult<()> {
-    let firmware: Vec<u8> = vec![0, 1, 2];
-    let res = agent
-        .update(&canister_id, "upload_firmware")
-        .with_effective_canister_id(canister_id)
-        .with_arg(
-            Encode!(
-                &agent.get_principal().unwrap(),
-                &agent.get_principal().unwrap(),
-                &"arm64".to_string(),
-                &firmware
-            )
-            .unwrap(),
-        )
         .call_and_wait()
         .await
         .unwrap();

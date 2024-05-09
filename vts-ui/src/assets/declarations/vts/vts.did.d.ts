@@ -20,12 +20,13 @@ export type AgreementState = { 'Unsigned' : null } |
 export type Error = { 'InvalidSigner' : null } |
   { 'Internal' : null } |
   { 'NotFound' : null } |
+  { 'Unauthorized' : null } |
   { 'AlreadyExists' : null };
-export type Result = { 'Ok' : bigint } |
+export type Result = { 'Ok' : null } |
   { 'Err' : Error };
-export type Result_1 = { 'Ok' : Principal } |
+export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : null } |
+export type Result_2 = { 'Ok' : Principal } |
   { 'Err' : Error };
 export type Result_3 = { 'Ok' : User } |
   { 'Err' : Error };
@@ -47,19 +48,26 @@ export interface Vehicle {
   'identity' : Principal,
 }
 export interface _SERVICE {
-  'create_agreement' : ActorMethod<[string, Principal, string, string], Result>,
-  'get_firmware_requests' : ActorMethod<[], Result_1>,
-  'get_firmware_requests_by_user' : ActorMethod<[], Result_2>,
+  'add_admin' : ActorMethod<[Principal], Result>,
+  'create_agreement' : ActorMethod<
+    [string, Principal, string, string],
+    Result_1
+  >,
+  'delete_admin' : ActorMethod<[Principal], Result>,
+  'delete_user' : ActorMethod<[Principal], Result>,
+  'get_firmware_requests' : ActorMethod<[], Result_2>,
+  'get_firmware_requests_by_user' : ActorMethod<[], Result>,
   'get_user' : ActorMethod<[], Result_3>,
   'get_user_agreements' : ActorMethod<[], Result_4>,
   'get_vehicle' : ActorMethod<[Principal], Result_5>,
   'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_6>,
-  'link_vehicle' : ActorMethod<[bigint, Principal], Result_2>,
-  'request_firmware' : ActorMethod<[], Result_2>,
-  'sign_agreement' : ActorMethod<[bigint], Result_2>,
+  'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
+  'register_user' : ActorMethod<[Principal], Result>,
+  'request_firmware' : ActorMethod<[], Result>,
+  'sign_agreement' : ActorMethod<[bigint], Result>,
   'upload_firmware' : ActorMethod<
     [Principal, Principal, string, Uint8Array | number[]],
-    Result_2
+    Result
   >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

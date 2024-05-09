@@ -51,6 +51,11 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
+
+    static ADMINS: RefCell<StableBTreeMap<Principal, Admin, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -64,7 +69,14 @@ pub enum Error {
     AlreadyExists,
     NotFound,
     InvalidSigner,
+    Unauthorized,
 }
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Admin {
+    public_key: Principal,
+}
+impl_storable!(Admin);
 
 #[derive(CandidType, Deserialize, Debug)]
 enum AgreementState {
@@ -107,15 +119,95 @@ struct AgreementConditions {
     gas_price: String,
 }
 
+#[ic_cdk::update]
+fn add_admin(new_admin: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ADMINS.with(|admins| {
+        if admins.borrow().is_empty() {
+            admins.borrow_mut().insert(caller, Admin { public_key: caller });
+            Ok(())
+        } else {
+            is_admin(caller)?;
+            admins.borrow_mut().insert(
+                new_admin,
+                Admin {
+                    public_key: new_admin,
+                },
+            );
+            Ok(())
+        }
+    })
+}
+
+#[ic_cdk::update]
+fn delete_admin(admin: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    ADMINS.with(|admins| {
+        if !admins.borrow().contains_key(&caller) {
+            return Err(Error::Unauthorized);
+        }
+        if !admins.borrow().contains_key(&admin) {
+            return Err(Error::NotFound);
+        }
+        if admin == caller {
+            return Err(Error::InvalidSigner);
+        }
+        admins.borrow_mut().remove(&admin);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn register_user(user: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    is_admin(caller)?;
+
+    if USERS.with(|users| users.borrow().contains_key(&user)) {
+        return Err(Error::AlreadyExists);
+    }
+
+    USERS.with(|users| {
+        users.borrow_mut().insert(
+            user,
+            User {
+                vehicles: HashMap::new(),
+                agreements: HashMap::new(),
+            },
+        );
+    });
+
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn delete_user(user: Principal) -> VTSResult<()> {
+    let caller = ic_cdk::api::caller();
+    is_admin(caller)?;
+
+    // Check if the user to be deleted exists.
+    USERS.with(|users| {
+        if !users.borrow().contains_key(&user) {
+            return Err(Error::NotFound);
+        }
+        Ok(())
+    })?;
+
+    // Remove the user.
+    USERS.with(|users| users.borrow_mut().remove(&user));
+    Ok(())
+}
+
 #[ic_cdk::query]
 fn get_user() -> VTSResult<User> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))
 }
 
 #[ic_cdk::update]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     ic_cdk::println!("{} is requested firmware", caller);
     FIRMWARE_REQUESTS.with(|requests| {
         if requests.borrow_mut().contains_key(&caller) {
@@ -130,7 +222,7 @@ fn request_firmware() -> VTSResult<()> {
 // This method can return first available firmware request.
 #[ic_cdk::query]
 fn get_firmware_requests() -> VTSResult<Principal> {
-    // todo: this canister method should be executed only by our gateway.
+    // todo: this canister method should be executed only by our gateway
     let (identity, _) =
         FIRMWARE_REQUESTS.with(|requests| requests.borrow().first_key_value().ok_or(Error::NotFound))?;
     Ok(identity)
@@ -140,6 +232,7 @@ fn get_firmware_requests() -> VTSResult<Principal> {
 #[ic_cdk::query]
 fn get_firmware_requests_by_user() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     FIRMWARE_REQUESTS.with(|requests| requests.borrow().get(&caller).ok_or(Error::NotFound))?;
     Ok(())
 }
@@ -151,7 +244,7 @@ fn upload_firmware(
     arch: String,
     firmware: Vec<u8>,
 ) -> VTSResult<()> {
-    // todo: this canister method should be executed only by our gateway.
+    // todo: this canister method should be executed only by our gateway
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&vh_customer));
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
@@ -166,22 +259,9 @@ fn upload_firmware(
         )
     });
     USERS.with(|users| -> VTSResult<()> {
-        let user = users.borrow_mut().get(&vh_customer);
-        match user {
-            Some(mut user) => {
-                user.vehicles.insert(vehicle, ());
-                users.borrow_mut().insert(vh_customer, user);
-            }
-            None => {
-                users.borrow_mut().insert(
-                    vh_customer,
-                    User {
-                        vehicles: HashMap::from_iter(vec![(vehicle, ())]),
-                        agreements: HashMap::new(),
-                    },
-                );
-            }
-        }
+        let mut user = users.borrow_mut().get(&vh_customer).ok_or(Error::NotFound)?;
+        user.vehicles.insert(vehicle, ());
+        users.borrow_mut().insert(vh_customer, user);
         Ok(())
     })
 }
@@ -189,6 +269,7 @@ fn upload_firmware(
 #[ic_cdk::query]
 fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
     if vehicle.owner != caller {
         return Err(Error::InvalidSigner);
@@ -204,6 +285,7 @@ fn create_agreement(
     gas_price: String,
 ) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     ic_cdk::println!("requested agreement creation by {}", caller);
 
     let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
@@ -246,6 +328,7 @@ fn create_agreement(
 #[ic_cdk::update]
 fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     ic_cdk::println!("requested agreement signing by {}", caller);
 
     AGREEMENTS.with(|agreements| {
@@ -273,6 +356,7 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
 #[ic_cdk::update]
 fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
     AGREEMENTS.with(|agreements| {
@@ -313,6 +397,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
 #[ic_cdk::query]
 fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
     let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     let user = USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))?;
     let mut agreements = Vec::with_capacity(user.agreements.len());
     AGREEMENTS.with(|agreements_storage| {
@@ -328,10 +413,30 @@ fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
 
 #[ic_cdk::query]
 fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal, ()>> {
+    let caller = ic_cdk::api::caller();
+    is_registered_user(caller)?;
     AGREEMENTS.with(|agreements| {
         let agreements = agreements.borrow();
         let agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
         Ok(agreement.vehicles)
+    })
+}
+
+fn is_admin(caller: Principal) -> Result<(), Error> {
+    ADMINS.with(|admins| {
+        if !admins.borrow().contains_key(&caller) {
+            return Err(Error::Unauthorized);
+        }
+        Ok(())
+    })
+}
+
+fn is_registered_user(caller: Principal) -> Result<(), Error> {
+    USERS.with(|users| {
+        if !users.borrow().contains_key(&caller) {
+            return Err(Error::Unauthorized);
+        }
+        Ok(())
     })
 }
 
