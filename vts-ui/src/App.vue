@@ -25,6 +25,10 @@ export default {
       alert('You are successfully logout. Please login again :)')
       await this.initAuthClient()
     },
+    copyIdentity() {
+      navigator.clipboard.writeText(this.principal)
+      alert('Principal copied to the clipboard.')
+    },
   },
 }
 </script>
@@ -40,9 +44,14 @@ export default {
           <RouterLink to="/firmwares"> Firmwares </RouterLink>
           <RouterLink to="/agreements"> Agreements </RouterLink>
         </li>
-        <li class="mouse-pointer" @click="logout()">
+        <li class="mouse-pointer" @click="logout">
           <!-- We need tag <a> to make it style like other menu entities. -->
-          <a>Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a>
+          <a style="padding-right: 0"
+            >Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a
+          >
+        </li>
+        <li class="mouse-pointer" style="margin-left: 0" @click="copyIdentity">
+          <img src="/copy.svg" style="width: 1.2em" />
         </li>
       </ul>
     </nav>

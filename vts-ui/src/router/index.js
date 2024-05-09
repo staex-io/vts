@@ -49,7 +49,8 @@ const router = createRouter({
   ],
 })
 router.beforeEach(async (to, from, next) => {
-  await initAuthClient()
+  const client = await initAuthClient()
+  console.log(client._identity._principal.toText())
   next()
 })
 

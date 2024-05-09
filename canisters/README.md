@@ -16,3 +16,11 @@ make start
 make install
 make test
 ```
+
+### Setup admin and users
+
+```shell
+dfx identity get-principal
+dfx canister call vts add_admin '(principal "")'
+dfx canister call vts register_user '(principal "")'
+```
