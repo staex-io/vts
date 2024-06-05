@@ -154,6 +154,5 @@ fn compress_firmware(vehicle: Principal, firmware: Vec<u8>) -> Res<Vec<u8>> {
     zip.start_file(format!("{vehicle}.firmware.{}", std::env::consts::ARCH), options)?;
     zip.write_all(&firmware)?;
     zip.finish()?;
-    drop(zip); // to make buf free
     Ok(buf.into_inner())
 }

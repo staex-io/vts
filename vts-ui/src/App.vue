@@ -41,14 +41,14 @@ export default {
       </a>
       <ul>
         <li>
-          <RouterLink to="/firmwares"> Firmwares </RouterLink>
-          <RouterLink to="/agreements"> Agreements </RouterLink>
+          <RouterLink to="/firmwares">Firmwares</RouterLink>
+          <RouterLink to="/agreements">Agreements</RouterLink>
         </li>
         <li class="mouse-pointer" @click="logout">
           <!-- We need tag <a> to make it style like other menu entities. -->
-          <a style="padding-right: 0"
-            >Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})</a
-          >
+          <a style="padding-right: 0">
+            Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})
+          </a>
         </li>
         <li class="mouse-pointer" style="margin-left: 0" @click="copyIdentity">
           <img src="/copy.svg" style="width: 1.2em" />
