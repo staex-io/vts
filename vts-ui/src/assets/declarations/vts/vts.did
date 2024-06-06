@@ -17,6 +17,7 @@ type Error = variant {
   NotFound;
   Unauthorized;
   AlreadyExists;
+  DecodeTelemetry;
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };

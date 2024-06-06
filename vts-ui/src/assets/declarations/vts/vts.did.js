@@ -7,6 +7,7 @@ export const idlFactory = ({ IDL }) => {
     'NotFound' : IDL.Null,
     'Unauthorized' : IDL.Null,
     'AlreadyExists' : IDL.Null,
+    'DecodeTelemetry' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });

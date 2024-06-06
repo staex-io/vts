@@ -23,7 +23,8 @@ export type Error = { 'InvalidSigner' : null } |
   { 'InvalidSignature' : null } |
   { 'NotFound' : null } |
   { 'Unauthorized' : null } |
-  { 'AlreadyExists' : null };
+  { 'AlreadyExists' : null } |
+  { 'DecodeTelemetry' : null };
 export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |

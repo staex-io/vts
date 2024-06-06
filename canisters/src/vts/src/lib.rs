@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use bincode::{Decode as BDecode, Encode as BEncode};
 use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
@@ -67,6 +68,12 @@ pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
+#[derive(BEncode, BDecode, Debug)]
+pub enum TelemetryType {
+    Gas,
+    GPS,
+}
+
 #[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
     #[default]
@@ -77,6 +84,7 @@ pub enum Error {
     Unauthorized,
     InvalidSignature,
     InvalidSignatureFormat,
+    DecodeTelemetry,
 }
 
 impl Display for Error {
@@ -95,6 +103,12 @@ impl From<String> for Error {
             _ => Self::Internal,
         }
     }
+}
+
+#[derive(BEncode, BDecode)]
+pub struct Telemetry {
+    pub value: u128,
+    pub t_type: TelemetryType,
 }
 
 #[derive(CandidType, Deserialize, Debug)]
@@ -439,6 +453,10 @@ fn store_telemetry(vehicle: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTS
     let verifying_key =
         VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
     verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
+    let telemetry: Telemetry = bincode::decode_from_slice(&data, bincode::config::standard())
+        .map_err(|_| Error::DecodeTelemetry)?
+        .0;
+    ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     Ok(())
 }
 

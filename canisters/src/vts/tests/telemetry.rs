@@ -2,6 +2,7 @@ use agent::{generate_vehicle, upload_firmware};
 use candid::Encode;
 use ic_agent::Identity;
 use k256::ecdsa::{signature::SignerMut, Signature};
+use vts::TelemetryType;
 
 use crate::agent::{init_agent, register_user};
 
@@ -18,13 +19,17 @@ async fn test_telemetry() {
 
     upload_firmware(&agent, canister_id, agent.get_principal().unwrap(), public_key).await.unwrap();
 
-    let data: Vec<u8> = vec![0, 1, 2];
-    let signature: Signature = signing_key.sign(&data);
+    let telemetry = vts::Telemetry {
+        value: 88,
+        t_type: TelemetryType::Gas,
+    };
+    let telemetry = bincode::encode_to_vec(telemetry, bincode::config::standard()).unwrap();
+    let signature: Signature = signing_key.sign(&telemetry);
     let signature = signature.to_vec();
     agent
         .update(&canister_id, "store_telemetry")
         .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&vehicle, &data, &signature).unwrap())
+        .with_arg(Encode!(&vehicle, &telemetry, &signature).unwrap())
         .call_and_wait()
         .await
         .unwrap();
