@@ -32,7 +32,7 @@ fn main() {
         let signature: Signature = signing_key.sign(&telemetry);
         let signature = signature.to_vec();
         client
-            .store_telemetry(gateway_tcp::StoreTelemetryData {
+            .store_telemetry(gateway_tcp::StoreTelemetry {
                 principal: principal.as_slice().to_vec(),
                 telemetry,
                 signature,
