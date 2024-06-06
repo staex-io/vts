@@ -19,9 +19,12 @@ export type AgreementState = { 'Unsigned' : null } |
   { 'Signed' : null };
 export type Error = { 'InvalidSigner' : null } |
   { 'Internal' : null } |
+  { 'InvalidSignatureFormat' : null } |
+  { 'InvalidSignature' : null } |
   { 'NotFound' : null } |
   { 'Unauthorized' : null } |
-  { 'AlreadyExists' : null };
+  { 'AlreadyExists' : null } |
+  { 'DecodeTelemetry' : null };
 export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
@@ -36,11 +39,14 @@ export type Result_5 = { 'Ok' : Vehicle } |
   { 'Err' : Error };
 export type Result_6 = { 'Ok' : Array<[Principal, null]> } |
   { 'Err' : Error };
+export type TelemetryType = { 'Gas' : null };
 export interface User {
   'agreements' : Array<[bigint, null]>,
   'vehicles' : Array<[Principal, null]>,
 }
 export interface Vehicle {
+  'telemetry' : Array<[TelemetryType, Array<bigint>]>,
+  'public_key' : Uint8Array | number[],
   'owner' : Principal,
   'arch' : string,
   'agreement' : [] | [bigint],
@@ -49,6 +55,7 @@ export interface Vehicle {
 }
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
+  'clean_state' : ActorMethod<[], undefined>,
   'create_agreement' : ActorMethod<
     [string, Principal, string, string],
     Result_1
@@ -65,8 +72,12 @@ export interface _SERVICE {
   'register_user' : ActorMethod<[Principal], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,
+  'store_telemetry' : ActorMethod<
+    [Principal, Uint8Array | number[], Uint8Array | number[]],
+    Result
+  >,
   'upload_firmware' : ActorMethod<
-    [Principal, Principal, string, Uint8Array | number[]],
+    [Principal, Uint8Array | number[], string, Uint8Array | number[]],
     Result
   >,
 }

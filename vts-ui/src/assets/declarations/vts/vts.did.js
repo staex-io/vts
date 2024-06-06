@@ -2,9 +2,12 @@ export const idlFactory = ({ IDL }) => {
   const Error = IDL.Variant({
     'InvalidSigner' : IDL.Null,
     'Internal' : IDL.Null,
+    'InvalidSignatureFormat' : IDL.Null,
+    'InvalidSignature' : IDL.Null,
     'NotFound' : IDL.Null,
     'Unauthorized' : IDL.Null,
     'AlreadyExists' : IDL.Null,
+    'DecodeTelemetry' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
@@ -32,7 +35,10 @@ export const idlFactory = ({ IDL }) => {
     'vh_customer' : IDL.Principal,
   });
   const Result_4 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
+  const TelemetryType = IDL.Variant({ 'Gas' : IDL.Null });
   const Vehicle = IDL.Record({
+    'telemetry' : IDL.Vec(IDL.Tuple(TelemetryType, IDL.Vec(IDL.Nat))),
+    'public_key' : IDL.Vec(IDL.Nat8),
     'owner' : IDL.Principal,
     'arch' : IDL.Text,
     'agreement' : IDL.Opt(IDL.Nat),
@@ -46,6 +52,7 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [Result], []),
+    'clean_state' : IDL.Func([], [], []),
     'create_agreement' : IDL.Func(
         [IDL.Text, IDL.Principal, IDL.Text, IDL.Text],
         [Result_1],
@@ -63,8 +70,13 @@ export const idlFactory = ({ IDL }) => {
     'register_user' : IDL.Func([IDL.Principal], [Result], []),
     'request_firmware' : IDL.Func([], [Result], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result], []),
+    'store_telemetry' : IDL.Func(
+        [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Vec(IDL.Nat8)],
+        [Result],
+        [],
+      ),
     'upload_firmware' : IDL.Func(
-        [IDL.Principal, IDL.Principal, IDL.Text, IDL.Vec(IDL.Nat8)],
+        [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Text, IDL.Vec(IDL.Nat8)],
         [Result],
         [],
       ),

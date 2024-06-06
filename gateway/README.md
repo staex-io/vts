@@ -1,1 +1,5 @@
 # Gateway
+
+```shell
+cargo run
+```

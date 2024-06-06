@@ -12,7 +12,7 @@ make install
 
 ```shell
 make start
-# Next command in another terminal session.
+# Next commands in another terminal session.
 make install
 make test
 ```

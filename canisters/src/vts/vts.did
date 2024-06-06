@@ -12,9 +12,12 @@ type AgreementState = variant { Unsigned; Signed };
 type Error = variant {
   InvalidSigner;
   Internal;
+  InvalidSignatureFormat;
+  InvalidSignature;
   NotFound;
   Unauthorized;
   AlreadyExists;
+  DecodeTelemetry;
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };
@@ -23,11 +26,14 @@ type Result_3 = variant { Ok : User; Err : Error };
 type Result_4 = variant { Ok : vec Agreement; Err : Error };
 type Result_5 = variant { Ok : Vehicle; Err : Error };
 type Result_6 = variant { Ok : vec record { principal; null }; Err : Error };
+type TelemetryType = variant { Gas };
 type User = record {
   agreements : vec record { nat; null };
   vehicles : vec record { principal; null };
 };
 type Vehicle = record {
+  telemetry : vec record { TelemetryType; vec nat };
+  public_key : blob;
   owner : principal;
   arch : text;
   agreement : opt nat;
@@ -36,6 +42,7 @@ type Vehicle = record {
 };
 service : {
   add_admin : (principal) -> (Result);
+  clean_state : () -> ();
   create_agreement : (text, principal, text, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);
@@ -49,5 +56,6 @@ service : {
   register_user : (principal) -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
-  upload_firmware : (principal, principal, text, blob) -> (Result);
+  store_telemetry : (principal, blob, blob) -> (Result);
+  upload_firmware : (principal, blob, text, blob) -> (Result);
 }

@@ -27,9 +27,7 @@ async fn test_firmware() {
     get_firmware_requests_by_user(&agent, canister_id).await.unwrap();
 
     // Upload firmware deletes current active user request.
-    upload_firmware(&agent, canister_id, agent.get_principal().unwrap(), Principal::anonymous())
-        .await
-        .unwrap();
+    upload_firmware(&agent, canister_id, agent.get_principal().unwrap(), vec![]).await.unwrap();
     // That's why we can again make new firmware request.
     // Request new firmware.
     request_firmware(&agent, canister_id).await.unwrap();
