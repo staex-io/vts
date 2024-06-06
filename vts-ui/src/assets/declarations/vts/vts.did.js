@@ -7,6 +7,7 @@ export const idlFactory = ({ IDL }) => {
     'NotFound' : IDL.Null,
     'Unauthorized' : IDL.Null,
     'AlreadyExists' : IDL.Null,
+    'DecodeTelemetry' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
@@ -34,7 +35,9 @@ export const idlFactory = ({ IDL }) => {
     'vh_customer' : IDL.Principal,
   });
   const Result_4 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
+  const TelemetryType = IDL.Variant({ 'Gas' : IDL.Null });
   const Vehicle = IDL.Record({
+    'telemetry' : IDL.Vec(IDL.Tuple(TelemetryType, IDL.Vec(IDL.Nat))),
     'public_key' : IDL.Vec(IDL.Nat8),
     'owner' : IDL.Principal,
     'arch' : IDL.Text,

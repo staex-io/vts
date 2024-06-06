@@ -10,8 +10,6 @@ The goal of this project is to develop trusted, transparent and automatic infras
 
 [firmware](./firmware/) \
 [gateway](./gateway/) \
+[gateway-tcp](./gateway-tcp/) \
 [canisters](./canisters/) \
 [vts-ui](./vts-ui/)
-
-test_get_vehicles_by_agreement
-test_link_vehicle_to_agreement_success

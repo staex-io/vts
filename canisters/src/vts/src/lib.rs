@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use bincode::{Decode as BDecode, Encode as BEncode};
 use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
@@ -67,6 +68,11 @@ pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
+#[derive(BEncode, BDecode, Debug, PartialEq, Eq, Hash, CandidType, Deserialize)]
+pub enum TelemetryType {
+    Gas,
+}
+
 #[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
 pub enum Error {
     #[default]
@@ -77,6 +83,7 @@ pub enum Error {
     Unauthorized,
     InvalidSignature,
     InvalidSignatureFormat,
+    DecodeTelemetry,
 }
 
 impl Display for Error {
@@ -95,6 +102,12 @@ impl From<String> for Error {
             _ => Self::Internal,
         }
     }
+}
+
+#[derive(BEncode, BDecode)]
+pub struct Telemetry {
+    pub value: u128,
+    pub t_type: TelemetryType,
 }
 
 #[derive(CandidType, Deserialize, Debug)]
@@ -116,7 +129,7 @@ struct User {
 }
 impl_storable!(User);
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 struct Vehicle {
     owner: Principal,
     agreement: Option<u128>,
@@ -124,6 +137,7 @@ struct Vehicle {
     public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
+    telemetry: HashMap<TelemetryType, Vec<u128>>,
 }
 impl_storable!(Vehicle);
 
@@ -272,6 +286,7 @@ fn upload_firmware(
                 public_key,
                 arch,
                 firmware,
+                telemetry: HashMap::from_iter(vec![(TelemetryType::Gas, vec![])]),
             },
         )
     });
@@ -433,12 +448,18 @@ fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal,
 }
 
 #[ic_cdk::update]
-fn store_telemetry(vehicle: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTSResult<()> {
+fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTSResult<()> {
     let signature = Signature::from_slice(&signature).map_err(|_| Error::InvalidSignatureFormat)?;
-    let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
+    let mut vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&principal).ok_or(Error::NotFound))?;
     let verifying_key =
         VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
     verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
+    let telemetry: Telemetry = bincode::decode_from_slice(&data, bincode::config::standard())
+        .map_err(|_| Error::DecodeTelemetry)?
+        .0;
+    ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
+    vehicle.telemetry.get_mut(&telemetry.t_type).ok_or(Error::NotFound)?.push(telemetry.value);
+    VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(principal, vehicle));
     Ok(())
 }
 
