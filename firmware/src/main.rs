@@ -1,4 +1,4 @@
-use std::{thread::sleep, time::Duration};
+use std::{net::SocketAddr, str::FromStr, thread::sleep, time::Duration};
 
 use ic_agent::{identity::Secp256k1Identity, Identity};
 use k256::{
@@ -14,7 +14,11 @@ fn main() {
     let secret_key = SecretKey::from_bytes(secret_key.into()).unwrap();
     let mut signing_key = SigningKey::from(&secret_key);
     let identity = Secp256k1Identity::from_private_key(secret_key);
-    eprintln!("Identity (sender): {}", identity.sender().unwrap());
+    let principal = identity.sender().unwrap();
+    eprintln!("Identity (sender): {}", principal);
+
+    // Gateway client.
+    let mut client = gateway_tcp::Client::new(SocketAddr::from_str("127.0.0.1:3344").unwrap()).unwrap();
 
     // Let's generate fake gas data and send it to gateway.
     loop {
@@ -26,7 +30,13 @@ fn main() {
         };
         let telemetry = bincode::encode_to_vec(telemetry, bincode::config::standard()).unwrap();
         let signature: Signature = signing_key.sign(&telemetry);
-        let _signature = signature.to_vec();
-        // todo: send it to gateway by RPC API
+        let signature = signature.to_vec();
+        client
+            .store_telemetry(gateway_tcp::StoreTelemetryData {
+                principal: principal.as_slice().to_vec(),
+                telemetry,
+                signature,
+            })
+            .unwrap();
     }
 }
