@@ -1,5 +1,5 @@
 use std::{
-    io::Write,
+    io::{Read, Write},
     net::{SocketAddr, TcpStream},
     time::Duration,
 };
@@ -11,6 +11,11 @@ pub type Res<T> = Result<T, String>;
 #[derive(Encode, Decode)]
 pub enum Request {
     StoreTelemetry(StoreTelemetry),
+}
+
+#[derive(Encode, Decode)]
+pub enum Response {
+    Ok,
 }
 
 #[derive(Encode, Decode)]
@@ -26,14 +31,25 @@ pub struct Client {
 
 impl Client {
     pub fn new(addr: SocketAddr) -> Res<Self> {
-        let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(10)).map_err(|e| e.to_string())?;
+        let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(10)).map_err(map_err)?;
         Ok(Self { stream })
     }
 
     pub fn store_telemetry(&mut self, data: StoreTelemetry) -> Res<()> {
-        let request = Request::StoreTelemetry(data);
-        let buf = bincode::encode_to_vec(request, bincode::config::standard()).map_err(|e| e.to_string())?;
-        self.stream.write_all(&buf).map_err(|e| e.to_string())?;
-        Ok(())
+        let req = Request::StoreTelemetry(data);
+        let mut buf = bincode::encode_to_vec(req, bincode::config::standard()).map_err(map_err)?;
+        buf.push(b'\n');
+        self.stream.write_all(&buf).map_err(map_err)?;
+
+        let mut buf = vec![0; 1];
+        self.stream.read(&mut buf).map_err(map_err)?;
+        let res: Response = bincode::decode_from_slice(&buf, bincode::config::standard()).map_err(map_err)?.0;
+        match res {
+            Response::Ok => Ok(()),
+        }
     }
+}
+
+fn map_err<E: ToString>(e: E) -> String {
+    e.to_string()
 }

@@ -26,11 +26,13 @@ type Result_3 = variant { Ok : User; Err : Error };
 type Result_4 = variant { Ok : vec Agreement; Err : Error };
 type Result_5 = variant { Ok : Vehicle; Err : Error };
 type Result_6 = variant { Ok : vec record { principal; null }; Err : Error };
+type TelemetryType = variant { Gas };
 type User = record {
   agreements : vec record { nat; null };
   vehicles : vec record { principal; null };
 };
 type Vehicle = record {
+  telemetry : vec record { TelemetryType; vec nat };
   public_key : blob;
   owner : principal;
   arch : text;

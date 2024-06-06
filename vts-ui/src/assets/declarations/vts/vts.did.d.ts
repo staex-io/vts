@@ -39,11 +39,13 @@ export type Result_5 = { 'Ok' : Vehicle } |
   { 'Err' : Error };
 export type Result_6 = { 'Ok' : Array<[Principal, null]> } |
   { 'Err' : Error };
+export type TelemetryType = { 'Gas' : null };
 export interface User {
   'agreements' : Array<[bigint, null]>,
   'vehicles' : Array<[Principal, null]>,
 }
 export interface Vehicle {
+  'telemetry' : Array<[TelemetryType, Array<bigint>]>,
   'public_key' : Uint8Array | number[],
   'owner' : Principal,
   'arch' : string,

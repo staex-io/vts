@@ -22,6 +22,10 @@ body {
   font-family: Roboto, Montserrat, sans;
 }
 
+.container {
+  padding: 0 25px;
+}
+
 h1 {
   text-align: center;
   color: var(--staex-pacific-blue);
