@@ -46,6 +46,7 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [Result], []),
+    'clean_state' : IDL.Func([], [], []),
     'create_agreement' : IDL.Func(
         [IDL.Text, IDL.Principal, IDL.Text, IDL.Text],
         [Result_1],

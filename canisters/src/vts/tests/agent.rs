@@ -23,6 +23,15 @@ pub async fn init_agent() -> (Agent, Principal) {
             .unwrap();
     let canister_id = Principal::from_text(canisters_ids.vts.local).unwrap();
 
+    // Clean state to not restart dfx node.
+    agent
+        .update(&canister_id, "clean_state")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&()).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+
     // Add itself as admin in canister.
     let res = agent
         .update(&canister_id, "add_admin")

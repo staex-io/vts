@@ -220,7 +220,7 @@ fn get_user() -> VTSResult<User> {
     USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))
 }
 
-#[ic_cdk::query(guard = is_user)]
+#[ic_cdk::update(guard = is_user)]
 fn request_firmware() -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("{} is requested firmware", caller);
@@ -290,7 +290,7 @@ fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     Ok(vehicle)
 }
 
-#[ic_cdk::query(guard = is_user)]
+#[ic_cdk::update(guard = is_user)]
 fn create_agreement(
     name: String,
     vh_customer: Principal,
@@ -337,7 +337,7 @@ fn create_agreement(
     Ok(next_agreement_id)
 }
 
-#[ic_cdk::query(guard = is_user)]
+#[ic_cdk::update(guard = is_user)]
 fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement signing by {}", caller);
@@ -364,7 +364,7 @@ fn sign_agreement(agreement_id: u128) -> VTSResult<()> {
     })
 }
 
-#[ic_cdk::query(guard = is_user)]
+#[ic_cdk::update(guard = is_user)]
 fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
@@ -427,6 +427,17 @@ fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal,
         let agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
         Ok(agreement.vehicles)
     })
+}
+
+#[cfg(feature = "clean_state")]
+#[ic_cdk::update]
+fn clean_state() {
+    AGREEMENT_ID_COUNTER.set(0);
+    FIRMWARE_REQUESTS.with(|firmware_requests| firmware_requests.borrow_mut().clear_new());
+    USERS.with(|users| users.borrow_mut().clear_new());
+    VEHICLES.with(|vehicles| vehicles.borrow_mut().clear_new());
+    AGREEMENTS.with(|agreements| agreements.borrow_mut().clear_new());
+    ADMINS.with(|admins| admins.borrow_mut().clear_new());
 }
 
 fn is_admin() -> Result<(), String> {

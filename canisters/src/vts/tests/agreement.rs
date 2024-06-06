@@ -13,23 +13,18 @@ mod agent;
 async fn test_create_agreement() {
     let (agent, canister_id) = init_agent().await;
 
-    let name = "Test Agreement".to_string();
-    let vh_customer = Principal::anonymous();
-    let daily_usage_fee = "100".to_string();
-    let gas_price = "10".to_string();
-
     let agreement_id = create_agreement(
         &agent,
         canister_id,
-        &name,
-        vh_customer,
-        &daily_usage_fee,
-        &gas_price,
+        "test",
+        Principal::anonymous(),
+        "100",
+        "10",
         Principal::anonymous(),
     )
     .await
     .unwrap();
-    assert_eq!(1, agreement_id, "First agreement ID should be positive");
+    assert_eq!(1, agreement_id, "first agreement id should be equal to one");
 }
 
 #[tokio::test]

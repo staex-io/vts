@@ -36,6 +36,7 @@ type Vehicle = record {
 };
 service : {
   add_admin : (principal) -> (Result);
+  clean_state : () -> ();
   create_agreement : (text, principal, text, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);

@@ -49,6 +49,7 @@ export interface Vehicle {
 }
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
+  'clean_state' : ActorMethod<[], undefined>,
   'create_agreement' : ActorMethod<
     [string, Principal, string, string],
     Result_1
