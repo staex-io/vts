@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 vts = { path = "../canisters/src/vts", features = [], default-features = false }
+gateway-tcp = { path = "../gateway-tcp", features = [], default-features = false }
 bincode = { workspace = true }
 ic-agent = { workspace = true }
 k256 = { workspace = true }

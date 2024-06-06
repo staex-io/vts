@@ -602,6 +602,7 @@ name = "firmware"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "gateway-tcp",
  "ic-agent",
  "k256",
  "rand",
@@ -689,8 +690,10 @@ dependencies = [
 name = "gateway"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "candid",
  "env_logger",
+ "gateway-tcp",
  "ic-agent",
  "k256",
  "log",
@@ -700,6 +703,13 @@ dependencies = [
  "tokio",
  "vts",
  "zip",
+]
+
+[[package]]
+name = "gateway-tcp"
+version = "0.1.0"
+dependencies = [
+ "bincode",
 ]
 
 [[package]]

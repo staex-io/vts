@@ -1,6 +1,6 @@
 [workspace]
-members = ["firmware", "gateway", "canisters/src/vts"]
-default-members = ["firmware", "gateway", "canisters/src/vts"]
+members = ["firmware", "gateway", "canisters/src/vts", "gateway-tcp"]
+default-members = ["firmware", "gateway", "canisters/src/vts", "gateway-tcp"]
 resolver = "2"
 
 [workspace.dependencies]

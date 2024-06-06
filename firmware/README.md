@@ -1,1 +1,5 @@
 # Firmware
+
+```shell
+cargo run
+```
