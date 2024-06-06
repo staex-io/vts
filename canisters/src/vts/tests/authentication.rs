@@ -12,7 +12,7 @@ async fn test_add_admin() {
 
     let new_admin = agent.get_principal().unwrap();
     let result = add_admin(&agent, canister_id, new_admin).await;
-    assert!(result.is_ok(), "Should add new admin");
+    assert!(result.is_ok(), "should add new admin");
 }
 
 #[tokio::test]
@@ -21,11 +21,11 @@ async fn test_delete_admin() {
 
     let new_admin = Principal::anonymous();
 
-    let result1 = add_admin(&agent, canister_id, new_admin).await;
-    assert!(result1.is_ok(), "Should add new admin");
+    let result_1 = add_admin(&agent, canister_id, new_admin).await;
+    assert!(result_1.is_ok(), "should add new admin");
 
-    let result2 = delete_admin(&agent, canister_id, &new_admin).await;
-    assert!(result2.is_ok(), "Should delete existing admin");
+    let result_2 = delete_admin(&agent, canister_id, &new_admin).await;
+    assert!(result_2.is_ok(), "should delete existing admin");
 }
 
 async fn add_admin(agent: &Agent, canister_id: Principal, new_admin: Principal) -> VTSResult<()> {
