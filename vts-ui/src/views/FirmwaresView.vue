@@ -112,76 +112,78 @@ export default {
 </script>
 
 <template>
-  <h1>Firmwares</h1>
-  <div v-if="fetchUserLoader" class="warning alert loader-container">
-    <div class="loader" />
-    Fetching active firmware status...
-  </div>
-  <div>
-    <p v-if="activeRequestText !== ''" class="warning alert">
-      {{ activeRequestText }}
-    </p>
-  </div>
+  <div class="container">
+    <h1>Firmwares</h1>
+    <div v-if="fetchUserLoader" class="warning alert loader-container">
+      <div class="loader" />
+      Fetching active firmware status...
+    </div>
+    <div>
+      <p v-if="activeRequestText !== ''" class="warning alert">
+        {{ activeRequestText }}
+      </p>
+    </div>
 
-  <button v-if="agreementId === 0" style="margin-bottom: 25px" @click="request">
-    <span v-if="!requestNewLoader">Request new firmware</span>
-    <div v-if="requestNewLoader" class="loader" />
-  </button>
-
-  <div v-if="!fetchUserLoader && vehicles.length">
-    <h2 v-if="agreementId === 0" style="margin-bottom: 25px">Available firmwares</h2>
-    <h2 v-if="agreementId !== 0" style="margin-bottom: 5px">
-      Available firmwares for the requested agreement
-    </h2>
-    <button
-      v-if="agreementId !== 0"
-      class="action-btn"
-      style="margin-bottom: 25px"
-      @click="() => goToAgreement(agreementId)"
-    >
-      Agreement
+    <button v-if="agreementId === 0" style="margin-bottom: 25px" @click="request">
+      <span v-if="!requestNewLoader">Request new firmware</span>
+      <div v-if="requestNewLoader" class="loader" />
     </button>
-    <table>
-      <thead>
-        <tr>
-          <th>Internet Identity</th>
-          <th>Arch</th>
-          <th />
-          <th v-if="agreementId === 0" />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="{ agreement, identity, arch, firmware } in vehicles" :key="identity">
-          <td>{{ identity.toString() }}</td>
-          <td>{{ arch }}</td>
-          <td style="text-align: right">
-            <button class="action-btn" @click="() => downloadFirmware(identity, arch, firmware)">
-              Download
-            </button>
-          </td>
-          <td v-if="agreementId === 0" style="text-align: right">
-            <button
-              v-if="agreement.length === 0"
-              class="action-btn"
-              @click="() => linkFirmware(identity)"
-            >
-              Link
-            </button>
-            <button v-else class="action-btn" @click="() => goToAgreement(agreement)">
-              Agreement
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p v-else>There are no vehicles at the moment.</p>
 
-  <div v-if="successText !== ''" class="success alert">
-    {{ successText }}
-  </div>
-  <div v-if="errorText !== ''" class="error alert">
-    {{ errorText }}
+    <div v-if="!fetchUserLoader && vehicles.length">
+      <h2 v-if="agreementId === 0" style="margin-bottom: 25px">Available firmwares</h2>
+      <h2 v-if="agreementId !== 0" style="margin-bottom: 5px">
+        Available firmwares for the requested agreement
+      </h2>
+      <button
+        v-if="agreementId !== 0"
+        class="action-btn"
+        style="margin-bottom: 25px"
+        @click="() => goToAgreement(agreementId)"
+      >
+        Agreement
+      </button>
+      <table>
+        <thead>
+          <tr>
+            <th>Internet Identity</th>
+            <th>Arch</th>
+            <th />
+            <th v-if="agreementId === 0" />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="{ agreement, identity, arch, firmware } in vehicles" :key="identity">
+            <td>{{ identity.toString() }}</td>
+            <td>{{ arch }}</td>
+            <td style="text-align: right">
+              <button class="action-btn" @click="() => downloadFirmware(identity, arch, firmware)">
+                Download
+              </button>
+            </td>
+            <td v-if="agreementId === 0" style="text-align: right">
+              <button
+                v-if="agreement.length === 0"
+                class="action-btn"
+                @click="() => linkFirmware(identity)"
+              >
+                Link
+              </button>
+              <button v-else class="action-btn" @click="() => goToAgreement(agreement)">
+                Agreement
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p v-else>There are no vehicles at the moment.</p>
+
+    <div v-if="successText !== ''" class="success alert">
+      {{ successText }}
+    </div>
+    <div v-if="errorText !== ''" class="error alert">
+      {{ errorText }}
+    </div>
   </div>
 </template>
 

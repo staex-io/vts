@@ -1,14 +1,18 @@
 use std::{
     fmt::Debug,
-    io::{Cursor, Write},
+    io::{Cursor, ErrorKind, Write},
+    net::SocketAddr,
     time::Duration,
 };
 
 use candid::{Decode, Encode};
+use gateway_tcp::{Request, Response};
 use ic_agent::{export::Principal, identity::Secp256k1Identity, Agent, Identity};
 use log::{debug, error, info, trace, LevelFilter};
 use serde::Deserialize;
 use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
     select,
     sync::watch,
     time::{sleep, timeout},
@@ -32,6 +36,12 @@ impl<T: ToString> From<T> for Error {
     }
 }
 
+#[derive(Clone)]
+struct State {
+    agent: Agent,
+    canister_id: Principal,
+}
+
 #[derive(Deserialize)]
 struct CanisterIds {
     vts: CanisterId,
@@ -49,7 +59,12 @@ async fn main() -> Res<()> {
         .filter_module("gateway", LevelFilter::Trace)
         .init();
     let (stop_s, stop_r) = watch::channel(());
-    tokio::spawn(async move { wait_for_firmware_requests(stop_r).await });
+    let (agent, canister_id) = init_agent().await?;
+    let state = State { agent, canister_id };
+    let state_ = state.clone();
+    let stop_r_ = stop_r.clone();
+    tokio::spawn(async move { wait_for_firmware_requests(state_, stop_r_).await });
+    tokio::spawn(async move { start_tcp_server(state, stop_r).await });
     info!("gateway started; waiting for termination signal");
     tokio::signal::ctrl_c().await?;
     debug!("received termination signal");
@@ -63,7 +78,7 @@ async fn main() -> Res<()> {
     Ok(())
 }
 
-async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
+async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()>) {
     loop {
         select! {
             _ = stop_r.changed() => {
@@ -71,7 +86,8 @@ async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
                 return;
             }
             _ = sleep(Duration::from_secs(1)) => {
-                if let Err(e) = check_firmware_requests().await {
+                let state_ = state.clone();
+                if let Err(e) = check_firmware_requests(state_).await {
                     error!("failed to check firmware requests: {:?}", e)
                 }
             }
@@ -79,12 +95,11 @@ async fn wait_for_firmware_requests(mut stop_r: watch::Receiver<()>) {
     }
 }
 
-async fn check_firmware_requests() -> Res<()> {
-    let (agent, canister_id) = init_agent().await?;
-    let vh_customer = match get_firmware_request(&agent, canister_id).await? {
+async fn check_firmware_requests(state: State) -> Res<()> {
+    let vh_customer = match get_firmware_request(&state.agent, state.canister_id).await? {
         Some(principal) => principal,
         None => {
-            debug!("now active firmware requests to build new firmware");
+            debug!("no active firmware requests to build new firmware");
             return Ok(());
         }
     };
@@ -100,8 +115,8 @@ async fn check_firmware_requests() -> Res<()> {
     let firmware = std::fs::read("../target/debug/firmware")?;
     let firmware = compress_firmware(vehicle.sender()?, firmware)?;
     upload_firmware(
-        &agent,
-        canister_id,
+        &state.agent,
+        state.canister_id,
         vh_customer,
         vehicle.public_key().ok_or("identity public key is empty".to_string())?,
         firmware,
@@ -162,4 +177,86 @@ fn compress_firmware(vehicle: Principal, firmware: Vec<u8>) -> Res<Vec<u8>> {
     zip.write_all(&firmware)?;
     zip.finish()?;
     Ok(buf.into_inner())
+}
+
+async fn start_tcp_server(state: State, mut stop_r: watch::Receiver<()>) -> Res<()> {
+    let tcp_server_address = "127.0.0.1:3322";
+    info!("starting tcp server on {}", tcp_server_address);
+    let listener = TcpListener::bind(tcp_server_address).await?;
+    loop {
+        select! {
+            _ = stop_r.changed() => {
+                trace!("received stop signal, exit tcp server loop");
+                return Ok(());
+            }
+            connection = listener.accept() => {
+                if let Ok(connection) = connection {
+                    let state_ = state.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = process_connection(connection, state_).await {
+                            error!("failed to process connection: {}", e.0)
+                        }
+                    });
+                }
+            }
+        }
+    }
+}
+
+async fn process_connection(connection: (TcpStream, SocketAddr), state: State) -> Res<()> {
+    let (mut stream, addr) = connection;
+    trace!("new tcp client connected: {addr}");
+
+    loop {
+        let mut buf: Vec<u8> = vec![0; 128];
+        let n = stream.read(&mut buf).await;
+        let buf = match n {
+            Ok(0) => {
+                trace!("rpc client disconnected: {}", addr);
+                return Ok(());
+            }
+            Ok(n) => {
+                buf.truncate(n);
+                // Remove new line if exists.
+                if buf.last() == Some(&10) {
+                    buf.pop();
+                }
+                buf
+            }
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                // This error means that there are no data in socket buffer but it is not closed.
+                return Ok(());
+            }
+            Err(e) => return Err(format!("failed to read from connection: {:?}: {:?}", addr, e).into()),
+        };
+
+        let req: Request = bincode::decode_from_slice(&buf, bincode::config::standard())?.0;
+        let res = handle_rpc_request(&req, &state).await?;
+        let mut buf: Vec<u8> = bincode::encode_to_vec(res, bincode::config::standard())?;
+        write(&mut stream, &mut buf).await?;
+    }
+}
+
+async fn write(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Res<()> {
+    // Add new line if not exists.
+    if buf.last() != Some(&10) {
+        buf.push(10);
+    }
+    Ok(stream.write_all(buf).await?)
+}
+
+async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
+    match req {
+        Request::StoreTelemetry(telemetry) => {
+            let principal = Principal::from_slice(&telemetry.principal);
+            state
+                .agent
+                .update(&state.canister_id, "store_telemetry")
+                .with_effective_canister_id(state.canister_id)
+                .with_arg(Encode!(&principal, &telemetry.telemetry, &telemetry.signature)?)
+                .call_and_wait()
+                .await?;
+            Ok(Response::Ok)
+        }
+    }
 }

@@ -18,7 +18,7 @@ fn main() {
     eprintln!("Identity (sender): {}", principal);
 
     // Gateway client.
-    let mut client = gateway_tcp::Client::new(SocketAddr::from_str("127.0.0.1:3344").unwrap()).unwrap();
+    let mut client = gateway_tcp::Client::new(SocketAddr::from_str("127.0.0.1:3322").unwrap()).unwrap();
 
     // Let's generate fake gas data and send it to gateway.
     loop {
