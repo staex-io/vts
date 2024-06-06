@@ -165,9 +165,6 @@ fn add_admin(new_admin: Principal) -> VTSResult<()> {
 fn delete_admin(admin: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
     ADMINS.with(|admins| {
-        if !admins.borrow().contains_key(&caller) {
-            return Err(Error::Unauthorized);
-        }
         if !admins.borrow().contains_key(&admin) {
             return Err(Error::NotFound);
         }
@@ -216,7 +213,6 @@ fn delete_user(user: Principal) -> VTSResult<()> {
 #[ic_cdk::query(guard = is_user)]
 fn get_user() -> VTSResult<User> {
     let caller = ic_cdk::api::caller();
-    // is_registered_user(caller)?;
     USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))
 }
 

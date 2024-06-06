@@ -48,6 +48,7 @@ async fn test_sign_agreement() {
 #[tokio::test]
 async fn test_sign_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
+    register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let result = sign_agreement(&agent, canister_id, &nonexistent_agreement_id).await.unwrap_err();
@@ -126,6 +127,7 @@ async fn test_link_vehicle_to_agreement_success() {
 #[tokio::test]
 async fn test_link_vehicle_to_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
+    register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let vehicle_public_key = Principal::anonymous();
@@ -155,6 +157,7 @@ async fn test_get_vehicles_by_agreement() {
 #[tokio::test]
 async fn test_get_vehicles_by_nonexistent_agreement() {
     let (agent, canister_id) = init_agent().await;
+    register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
     let nonexistent_agreement_id = 999999; // An ID that doesn't exist.
     let result = get_vehicles_by_agreement(&agent, canister_id, &nonexistent_agreement_id).await.unwrap_err();
