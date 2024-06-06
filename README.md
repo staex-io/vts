@@ -12,3 +12,6 @@ The goal of this project is to develop trusted, transparent and automatic infras
 [gateway](./gateway/) \
 [canisters](./canisters/) \
 [vts-ui](./vts-ui/)
+
+test_get_vehicles_by_agreement
+test_link_vehicle_to_agreement_success

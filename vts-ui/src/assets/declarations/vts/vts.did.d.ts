@@ -19,6 +19,8 @@ export type AgreementState = { 'Unsigned' : null } |
   { 'Signed' : null };
 export type Error = { 'InvalidSigner' : null } |
   { 'Internal' : null } |
+  { 'InvalidSignatureFormat' : null } |
+  { 'InvalidSignature' : null } |
   { 'NotFound' : null } |
   { 'Unauthorized' : null } |
   { 'AlreadyExists' : null };
@@ -41,6 +43,7 @@ export interface User {
   'vehicles' : Array<[Principal, null]>,
 }
 export interface Vehicle {
+  'public_key' : Uint8Array | number[],
   'owner' : Principal,
   'arch' : string,
   'agreement' : [] | [bigint],
@@ -66,8 +69,12 @@ export interface _SERVICE {
   'register_user' : ActorMethod<[Principal], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,
+  'store_telemetry' : ActorMethod<
+    [Principal, Uint8Array | number[], Uint8Array | number[]],
+    Result
+  >,
   'upload_firmware' : ActorMethod<
-    [Principal, Principal, string, Uint8Array | number[]],
+    [Principal, Uint8Array | number[], string, Uint8Array | number[]],
     Result
   >,
 }

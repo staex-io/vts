@@ -2,6 +2,8 @@ export const idlFactory = ({ IDL }) => {
   const Error = IDL.Variant({
     'InvalidSigner' : IDL.Null,
     'Internal' : IDL.Null,
+    'InvalidSignatureFormat' : IDL.Null,
+    'InvalidSignature' : IDL.Null,
     'NotFound' : IDL.Null,
     'Unauthorized' : IDL.Null,
     'AlreadyExists' : IDL.Null,
@@ -33,6 +35,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Result_4 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
   const Vehicle = IDL.Record({
+    'public_key' : IDL.Vec(IDL.Nat8),
     'owner' : IDL.Principal,
     'arch' : IDL.Text,
     'agreement' : IDL.Opt(IDL.Nat),
@@ -64,8 +67,13 @@ export const idlFactory = ({ IDL }) => {
     'register_user' : IDL.Func([IDL.Principal], [Result], []),
     'request_firmware' : IDL.Func([], [Result], []),
     'sign_agreement' : IDL.Func([IDL.Nat], [Result], []),
+    'store_telemetry' : IDL.Func(
+        [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Vec(IDL.Nat8)],
+        [Result],
+        [],
+      ),
     'upload_firmware' : IDL.Func(
-        [IDL.Principal, IDL.Principal, IDL.Text, IDL.Vec(IDL.Nat8)],
+        [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Text, IDL.Vec(IDL.Nat8)],
         [Result],
         [],
       ),

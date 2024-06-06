@@ -7,5 +7,6 @@ resolver = "2"
 ic-agent = { version = "0.36.0", features = [], default-features = true }
 serde = { version = "1.0.203", features = [], default-features = false }
 candid = { version = "0.10.8", features = [], default-features = false }
-k256 = { version = "0.13.3", features = [], default-features = false }
+k256 = { version = "0.13.3", features = ["ecdsa", "pkcs8"], default-features = false }
 serde_json = { version = "1.0.117", features = [], default-features = false }
+rand = { version = "0.8.5", features = [], default-features = false }

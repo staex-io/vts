@@ -12,6 +12,8 @@ type AgreementState = variant { Unsigned; Signed };
 type Error = variant {
   InvalidSigner;
   Internal;
+  InvalidSignatureFormat;
+  InvalidSignature;
   NotFound;
   Unauthorized;
   AlreadyExists;
@@ -28,6 +30,7 @@ type User = record {
   vehicles : vec record { principal; null };
 };
 type Vehicle = record {
+  public_key : blob;
   owner : principal;
   arch : text;
   agreement : opt nat;
@@ -50,5 +53,6 @@ service : {
   register_user : (principal) -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
-  upload_firmware : (principal, principal, text, blob) -> (Result);
+  store_telemetry : (principal, blob, blob) -> (Result);
+  upload_firmware : (principal, blob, text, blob) -> (Result);
 }

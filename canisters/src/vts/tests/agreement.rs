@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use agent::{register_user, upload_firmware};
+use agent::{generate_vehicle, register_user, upload_firmware};
 use candid::{Decode, Encode, Principal};
-use ic_agent::Agent;
+use ic_agent::{Agent, Identity};
 use vts::{Error, VTSResult};
 
 use crate::agent::init_agent;
@@ -12,6 +12,7 @@ mod agent;
 #[tokio::test]
 async fn test_create_agreement() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
 
     let agreement_id = create_agreement(
         &agent,
@@ -20,7 +21,7 @@ async fn test_create_agreement() {
         Principal::anonymous(),
         "100",
         "10",
-        Principal::anonymous(),
+        identity.public_key().unwrap(),
     )
     .await
     .unwrap();
@@ -30,6 +31,7 @@ async fn test_create_agreement() {
 #[tokio::test]
 async fn test_sign_agreement() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
 
     let agreement_id = create_agreement(
         &agent,
@@ -38,7 +40,7 @@ async fn test_sign_agreement() {
         agent.get_principal().unwrap(),
         "100",
         "10",
-        Principal::anonymous(),
+        identity.public_key().unwrap(),
     )
     .await
     .unwrap();
@@ -58,6 +60,7 @@ async fn test_sign_nonexistent_agreement() {
 #[tokio::test]
 async fn test_sign_agreement_twice() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
 
     let agreement_id = create_agreement(
         &agent,
@@ -66,7 +69,7 @@ async fn test_sign_agreement_twice() {
         agent.get_principal().unwrap(),
         "100",
         "10",
-        Principal::anonymous(),
+        identity.public_key().unwrap(),
     )
     .await
     .unwrap();
@@ -81,6 +84,7 @@ async fn test_sign_agreement_twice() {
 #[tokio::test]
 async fn test_create_duplicate_agreements() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
 
     let agreement_id_1 = create_agreement(
         &agent,
@@ -89,7 +93,7 @@ async fn test_create_duplicate_agreements() {
         agent.get_principal().unwrap(),
         "100",
         "10",
-        Principal::anonymous(),
+        identity.public_key().unwrap(),
     )
     .await
     .unwrap();
@@ -101,7 +105,7 @@ async fn test_create_duplicate_agreements() {
         agent.get_principal().unwrap(),
         "100",
         "10",
-        Principal::anonymous(),
+        identity.public_key().unwrap(),
     )
     .await
     .unwrap();
@@ -112,13 +116,21 @@ async fn test_create_duplicate_agreements() {
 #[tokio::test]
 async fn test_link_vehicle_to_agreement_success() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
+    let vehicle = identity.sender().unwrap();
+    let public_key = identity.public_key().unwrap();
 
-    let vehicle = Principal::anonymous();
-
-    let agreement_id =
-        create_agreement(&agent, canister_id, "test", agent.get_principal().unwrap(), "100", "10", vehicle)
-            .await
-            .unwrap();
+    let agreement_id = create_agreement(
+        &agent,
+        canister_id,
+        "test",
+        agent.get_principal().unwrap(),
+        "100",
+        "10",
+        public_key,
+    )
+    .await
+    .unwrap();
 
     let result = link_vehicle(&agent, canister_id, &agreement_id, &vehicle).await;
     assert!(result.is_ok(), "should successfully link the vehicle to the agreement");
@@ -139,13 +151,21 @@ async fn test_link_vehicle_to_nonexistent_agreement() {
 #[tokio::test]
 async fn test_get_vehicles_by_agreement() {
     let (agent, canister_id) = init_agent().await;
+    let (_, identity) = generate_vehicle();
+    let vehicle = identity.sender().unwrap();
+    let public_key = identity.public_key().unwrap();
 
-    let vehicle = Principal::anonymous();
-
-    let agreement_id =
-        create_agreement(&agent, canister_id, "test", agent.get_principal().unwrap(), "100", "10", vehicle)
-            .await
-            .unwrap();
+    let agreement_id = create_agreement(
+        &agent,
+        canister_id,
+        "test",
+        agent.get_principal().unwrap(),
+        "100",
+        "10",
+        public_key,
+    )
+    .await
+    .unwrap();
 
     link_vehicle(&agent, canister_id, &agreement_id, &vehicle).await.unwrap();
 
@@ -171,11 +191,11 @@ async fn create_agreement(
     vh_customer: Principal,
     daily_usage_fee: &str,
     gas_price: &str,
-    vehicle: Principal,
+    public_key: Vec<u8>,
 ) -> VTSResult<u128> {
     register_user(agent, canister_id, agent.get_principal().unwrap()).await;
     register_user(agent, canister_id, vh_customer).await;
-    upload_firmware(agent, canister_id, vh_customer, vehicle).await.unwrap();
+    upload_firmware(agent, canister_id, vh_customer, public_key).await.unwrap();
 
     let response = agent
         .update(&canister_id, "create_agreement")

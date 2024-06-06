@@ -7,6 +7,8 @@ use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
+use k256::pkcs8::DecodePublicKey;
 
 macro_rules! impl_storable {
     ($struct_name:ident) => {
@@ -73,6 +75,8 @@ pub enum Error {
     NotFound,
     InvalidSigner,
     Unauthorized,
+    InvalidSignature,
+    InvalidSignatureFormat,
 }
 
 impl Display for Error {
@@ -117,6 +121,7 @@ struct Vehicle {
     owner: Principal,
     agreement: Option<u128>,
     identity: Principal,
+    public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
 }
@@ -250,11 +255,12 @@ fn get_firmware_requests_by_user() -> VTSResult<()> {
 #[ic_cdk::update]
 fn upload_firmware(
     vh_customer: Principal,
-    vehicle: Principal,
+    public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
 ) -> VTSResult<()> {
     // todo: this canister method should be executed only by our gateway
+    let vehicle = Principal::self_authenticating(&public_key);
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&vh_customer));
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
@@ -263,6 +269,7 @@ fn upload_firmware(
                 owner: vh_customer,
                 agreement: None,
                 identity: vehicle,
+                public_key,
                 arch,
                 firmware,
             },
@@ -425,6 +432,18 @@ fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal,
     })
 }
 
+#[ic_cdk::update]
+fn store_telemetry(vehicle: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTSResult<()> {
+    let signature = Signature::from_slice(&signature).map_err(|_| Error::InvalidSignatureFormat)?;
+    let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
+    let verifying_key =
+        VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
+    verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
+    Ok(())
+}
+
+// We use this method only in tests to not restart dfx node.
+// And make every test with clean state.
 #[cfg(feature = "clean_state")]
 #[ic_cdk::update]
 fn clean_state() {

@@ -1,5 +1,6 @@
 use candid::{Decode, Encode, Principal};
 use ic_agent::{identity::Secp256k1Identity, Agent, Identity};
+use k256::ecdsa::SigningKey;
 use serde::Deserialize;
 use vts::VTSResult;
 
@@ -68,15 +69,22 @@ pub async fn upload_firmware(
     agent: &Agent,
     canister_id: Principal,
     vh_customer: Principal,
-    vehicle: Principal,
+    public_key: Vec<u8>,
 ) -> VTSResult<()> {
     let firmware: Vec<u8> = vec![0, 1, 2];
     let res = agent
         .update(&canister_id, "upload_firmware")
         .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&vh_customer, &vehicle, &"arm64".to_string(), &firmware).unwrap())
+        .with_arg(Encode!(&vh_customer, &public_key, &"arm64".to_string(), &firmware).unwrap())
         .call_and_wait()
         .await
         .unwrap();
     Decode!(res.as_slice(), VTSResult<()>).unwrap()
+}
+
+#[allow(dead_code)]
+pub fn generate_vehicle() -> (SigningKey, Secp256k1Identity) {
+    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let identity = Secp256k1Identity::from_private_key(signing_key.clone().into());
+    (signing_key, identity)
 }

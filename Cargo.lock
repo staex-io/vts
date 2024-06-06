@@ -2028,6 +2028,8 @@ dependencies = [
  "ic-agent",
  "ic-cdk",
  "ic-stable-structures",
+ "k256",
+ "rand",
  "serde",
  "serde_json",
  "tokio",
