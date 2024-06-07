@@ -20,6 +20,8 @@ use tokio::{
 use vts::VTSResult;
 use zip::write::SimpleFileOptions;
 
+const FIRMWARE_PATH: &str = "../target/debug/firmware";
+
 type Res<T> = Result<T, Error>;
 
 pub(crate) struct Error(String);
@@ -104,16 +106,28 @@ async fn check_firmware_requests(state: State) -> Res<()> {
         }
     };
     debug!("new firmware request: {vh_customer}, building new firmware");
+
+    // Generate new secret key for the firmware.
     let secret_key = k256::SecretKey::random(&mut rand::thread_rng());
     std::fs::write("../firmware/secret_key", secret_key.to_bytes())?;
+
+    // Build firmware with newly generated secret key.
     let output =
         std::process::Command::new("cargo").args(vec!["build"]).current_dir("../firmware").output()?;
     if !output.status.success() {
         return Err("build firmware error".into());
     }
+
+    // Sign firmware for macOS.
+    sign_firmware(FIRMWARE_PATH)?;
+
+    // Load firmware.
+    let firmware = std::fs::read(FIRMWARE_PATH)?;
+
+    // Compress firmware.
     let vehicle = Secp256k1Identity::from_private_key(secret_key.clone());
-    let firmware = std::fs::read("../target/debug/firmware")?;
     let firmware = compress_firmware(vehicle.sender()?, firmware)?;
+
     upload_firmware(
         &state.agent,
         state.canister_id,
@@ -259,4 +273,17 @@ async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
             Ok(Response::Ok)
         }
     }
+}
+
+fn sign_firmware(filepath: &str) -> Res<()> {
+    if std::env::consts::OS != "macos" {
+        return Ok(());
+    }
+    let output = std::process::Command::new("codesign")
+        .args(vec!["-f", "-s", "vts-signer", filepath, "--deep"])
+        .output()?;
+    if !output.status.success() {
+        return Err("build firmware error".into());
+    }
+    Ok(())
 }

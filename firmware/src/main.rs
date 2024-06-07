@@ -1,4 +1,9 @@
-use std::{net::SocketAddr, str::FromStr, thread::sleep, time::Duration};
+use std::{
+    net::SocketAddr,
+    str::FromStr,
+    thread::sleep,
+    time::{Duration, SystemTime},
+};
 
 use ic_agent::{identity::Secp256k1Identity, Identity};
 use k256::{
@@ -38,5 +43,9 @@ fn main() {
                 signature,
             })
             .unwrap();
+        eprintln!(
+            "{} telemetry successfully sent to the gateway",
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis()
+        );
     }
 }
