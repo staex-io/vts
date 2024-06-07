@@ -46,27 +46,29 @@ export default {
 </script>
 
 <template>
-  <h1>Create agreement</h1>
+  <div class="container">
+    <h1>Create agreement</h1>
 
-  <label for="name">Name</label>
-  <input id="name" v-model="name" type="text" name="name" />
+    <label for="name">Name</label>
+    <input id="name" v-model="name" type="text" name="name" />
 
-  <label for="vh_customer">Vehicle customer</label>
-  <input id="vh_customer" v-model="vh_customer" type="text" name="vh_customer" />
+    <label for="vh_customer">Vehicle customer</label>
+    <input id="vh_customer" v-model="vh_customer" type="text" name="vh_customer" />
 
-  <label for="daily_usage_fee">Daily usage fee</label>
-  <input id="daily_usage_fee" v-model="daily_usage_fee" type="number" name="daily_usage_fee" />
+    <label for="daily_usage_fee">Daily usage fee</label>
+    <input id="daily_usage_fee" v-model="daily_usage_fee" type="number" name="daily_usage_fee" />
 
-  <label for="gas_price">Gas price</label>
-  <input id="gas_price" v-model="gas_price" type="number" name="gas_price" />
+    <label for="gas_price">Gas price</label>
+    <input id="gas_price" v-model="gas_price" type="number" name="gas_price" />
 
-  <button style="margin-top: 25px; width: 100%" @click="createAgreement">
-    <span v-if="!creationLoader">Create agreement</span>
-    <div v-if="creationLoader" class="loader" />
-  </button>
+    <button style="margin-top: 25px; width: 100%" @click="createAgreement">
+      <span v-if="!creationLoader">Create agreement</span>
+      <div v-if="creationLoader" class="loader" />
+    </button>
 
-  <div v-if="errorText !== ''" class="error alert">
-    {{ errorText }}
+    <div v-if="errorText !== ''" class="error alert">
+      {{ errorText }}
+    </div>
   </div>
 </template>
 

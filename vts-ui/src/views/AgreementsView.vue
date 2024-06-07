@@ -106,88 +106,90 @@ export default {
 </script>
 
 <template>
-  <h1>Agreements</h1>
-  <div v-if="fetchAgreementsLoader" class="warning alert loader-container">
-    <div class="loader" />
-    Fetching active agreements status...
-  </div>
+  <div class="container">
+    <h1>Agreements</h1>
+    <div v-if="fetchAgreementsLoader" class="warning alert loader-container">
+      <div class="loader" />
+      Fetching active agreements status...
+    </div>
 
-  <div style="margin-bottom: 25px">
-    <button class="mouse-pointer" @click="goToCreateAgreementPage">Create new agreement</button>
-  </div>
+    <div style="margin-bottom: 25px">
+      <button class="mouse-pointer" @click="goToCreateAgreementPage">Create new agreement</button>
+    </div>
 
-  <div v-if="!fetchAgreementsLoader && agreements.length">
-    <h2 style="margin-bottom: 5px">Available agreements</h2>
-    <p style="margin-bottom: 25px">
-      <i>By pressing on agreement name you can see its vehicles</i>
-    </p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Entity</th>
-          <th>Daily usage fee</th>
-          <th>Gas price</th>
-          <th />
-          <th v-if="vehicleToLink" />
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="{ id, name, vh_provider, vh_customer, conditions, state } in agreements"
-          :key="id"
-        >
-          <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
-            {{ name }}
-          </td>
-          <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
-            {{
-              ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
-            }}
-          </td>
-          <td>{{ conditions.daily_usage_fee }}</td>
-          <td>{{ conditions.gas_price }}</td>
-          <td>
-            <button
-              v-if="
-                state.Unsigned === null && ownPrincipal === vh_customer.toText() && signedId != id
-              "
-              class="link-btn"
-              @click="() => signAgreement(id)"
-            >
-              <span v-if="signAgreementLoaderId !== id">Sign</span>
-              <div v-else class="loader" />
-            </button>
-            <button
-              v-if="state.Unsigned === null && ownPrincipal === vh_provider.toText()"
-              class="link-btn"
-              disabled
-            >
-              Unsigned
-            </button>
-            <button
-              v-if="state.Unsigned !== null || signedId == id"
-              disabled
-              class="link-btn success-btn"
-            >
-              Signed
-            </button>
-          </td>
-          <td v-if="vehicleToLink">
-            <button v-if="linkedId !== id" class="link-btn" @click="() => linkVehicle(id)">
-              <span v-if="linkVehicleLoaderId !== id">Link</span>
-              <div v-else class="loader" />
-            </button>
-            <button v-else class="link-btn success-btn" disabled>Linked</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p v-else>There are no agreements at the moment.</p>
+    <div v-if="!fetchAgreementsLoader && agreements.length">
+      <h2 style="margin-bottom: 5px">Available agreements</h2>
+      <p style="margin-bottom: 25px">
+        <i>By pressing on agreement name you can see its vehicles</i>
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Entity</th>
+            <th>Daily usage fee</th>
+            <th>Gas price</th>
+            <th />
+            <th v-if="vehicleToLink" />
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="{ id, name, vh_provider, vh_customer, conditions, state } in agreements"
+            :key="id"
+          >
+            <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
+              {{ name }}
+            </td>
+            <td class="mouse-pointer" @click="() => goToAgreementVehicles(id)">
+              {{
+                ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
+              }}
+            </td>
+            <td>{{ conditions.daily_usage_fee }}</td>
+            <td>{{ conditions.gas_price }}</td>
+            <td>
+              <button
+                v-if="
+                  state.Unsigned === null && ownPrincipal === vh_customer.toText() && signedId != id
+                "
+                class="link-btn"
+                @click="() => signAgreement(id)"
+              >
+                <span v-if="signAgreementLoaderId !== id">Sign</span>
+                <div v-else class="loader" />
+              </button>
+              <button
+                v-if="state.Unsigned === null && ownPrincipal === vh_provider.toText()"
+                class="link-btn"
+                disabled
+              >
+                Unsigned
+              </button>
+              <button
+                v-if="state.Unsigned !== null || signedId == id"
+                disabled
+                class="link-btn success-btn"
+              >
+                Signed
+              </button>
+            </td>
+            <td v-if="vehicleToLink">
+              <button v-if="linkedId !== id" class="link-btn" @click="() => linkVehicle(id)">
+                <span v-if="linkVehicleLoaderId !== id">Link</span>
+                <div v-else class="loader" />
+              </button>
+              <button v-else class="link-btn success-btn" disabled>Linked</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p v-else>There are no agreements at the moment.</p>
 
-  <div v-if="errorText !== ''" class="error alert">
-    {{ errorText }}
+    <div v-if="errorText !== ''" class="error alert">
+      {{ errorText }}
+    </div>
   </div>
 </template>
 

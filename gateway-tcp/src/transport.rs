@@ -41,7 +41,7 @@ impl Client {
         buf.push(b'\n');
         self.stream.write_all(&buf).map_err(map_err)?;
 
-        let mut buf = vec![0; 1];
+        let mut buf = vec![0; 8];
         self.stream.read(&mut buf).map_err(map_err)?;
         let res: Response = bincode::decode_from_slice(&buf, bincode::config::standard()).map_err(map_err)?.0;
         match res {
