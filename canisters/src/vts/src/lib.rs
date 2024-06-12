@@ -62,6 +62,11 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
     );
+
+    static AGGREGATED_TELEMETRY: RefCell<StableBTreeMap<Principal, AggregatedTelemetry, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -110,6 +115,15 @@ pub struct Telemetry {
     pub t_type: TelemetryType,
 }
 
+#[derive(BEncode, BDecode, Debug, PartialEq, Eq, CandidType, Deserialize, Clone, Default)]
+pub struct AggregatedTelemetry {
+    daily_gas_usage: HashMap<String, u128>,
+    weekly_gas_usage: HashMap<String, u128>,
+    monthly_gas_usage: HashMap<String, u128>,
+}
+
+impl_storable!(AggregatedTelemetry);
+
 #[derive(CandidType, Deserialize, Debug)]
 struct Admin {
     public_key: Principal,
@@ -157,6 +171,65 @@ impl_storable!(Agreement);
 struct AgreementConditions {
     daily_usage_fee: String,
     gas_price: String,
+}
+
+#[ic_cdk::init]
+fn init() {
+    ic_cdk_timers::set_timer_interval(std::time::Duration::from_secs(86400), || {
+        aggregate_telemetry_data();
+    });
+}
+
+fn aggregate_telemetry_data() {
+    let now: u128 = ic_cdk::api::time().into();
+
+    VEHICLES.with(|vehicles| {
+        let vehicle_ids: Vec<Principal> = vehicles.borrow().iter().map(|(k, _)| k).collect();
+        for vehicle_id in vehicle_ids {
+            let mut vehicle = match get_vehicle(vehicle_id) {
+                Ok(vehicle) => vehicle,
+                Err(_) => continue,
+            };
+
+            let mut daily_usage: HashMap<String, u128> = HashMap::new();
+            let mut weekly_usage: HashMap<String, u128> = HashMap::new();
+            let mut monthly_usage: HashMap<String, u128> = HashMap::new();
+
+            if let Some(gas_data) = vehicle.telemetry.get_mut(&TelemetryType::Gas) {
+                gas_data.retain(|&timestamp| {
+                    let date = format!("{}", timestamp / 86400);
+                    let week = format!("{}", timestamp / (86400 * 7));
+                    let month = format!("{}", timestamp / (86400 * 30));
+
+                    *daily_usage.entry(date).or_insert(0) += timestamp;
+                    *weekly_usage.entry(week).or_insert(0) += timestamp;
+                    *monthly_usage.entry(month).or_insert(0) += timestamp;
+
+                    timestamp >= now - (86400 * 30 * 1_000_000_000)
+                });
+            }
+
+            AGGREGATED_TELEMETRY.with(|aggregated_telemetry| {
+                let mut aggregated_telemetry = aggregated_telemetry.borrow_mut();
+                let entry = aggregated_telemetry.get(&vehicle_id).unwrap();
+                let mut new_entry = entry.clone();
+                new_entry.daily_gas_usage.extend(daily_usage);
+                new_entry.weekly_gas_usage.extend(weekly_usage);
+                new_entry.monthly_gas_usage.extend(monthly_usage);
+                aggregated_telemetry.insert(vehicle_id, new_entry);
+            });
+
+            VEHICLES.with(|vehicles| {
+                vehicles.borrow_mut().insert(vehicle_id, vehicle);
+            });
+        }
+    });
+}
+
+#[ic_cdk::query(guard = is_user)]
+fn get_aggregated_telemetry(vehicle: Principal) -> VTSResult<AggregatedTelemetry> {
+    AGGREGATED_TELEMETRY
+        .with(|aggregated_telemetry| aggregated_telemetry.borrow().get(&vehicle).ok_or(Error::NotFound))
 }
 
 #[ic_cdk::update]
