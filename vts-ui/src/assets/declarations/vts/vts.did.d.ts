@@ -2,6 +2,11 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
+export interface AggregatedTelemetry {
+  'weekly_gas_usage' : Array<[string, bigint]>,
+  'daily_gas_usage' : Array<[string, bigint]>,
+  'monthly_gas_usage' : Array<[string, bigint]>,
+}
 export interface Agreement {
   'id' : bigint,
   'vehicles' : Array<[Principal, null]>,
@@ -29,15 +34,17 @@ export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : Principal } |
+export type Result_2 = { 'Ok' : AggregatedTelemetry } |
   { 'Err' : Error };
-export type Result_3 = { 'Ok' : User } |
+export type Result_3 = { 'Ok' : Principal } |
   { 'Err' : Error };
-export type Result_4 = { 'Ok' : Array<Agreement> } |
+export type Result_4 = { 'Ok' : User } |
   { 'Err' : Error };
-export type Result_5 = { 'Ok' : Vehicle } |
+export type Result_5 = { 'Ok' : Array<Agreement> } |
   { 'Err' : Error };
-export type Result_6 = { 'Ok' : Array<[Principal, null]> } |
+export type Result_6 = { 'Ok' : Vehicle } |
+  { 'Err' : Error };
+export type Result_7 = { 'Ok' : Array<[Principal, null]> } |
   { 'Err' : Error };
 export type TelemetryType = { 'Gas' : null };
 export interface User {
@@ -62,12 +69,13 @@ export interface _SERVICE {
   >,
   'delete_admin' : ActorMethod<[Principal], Result>,
   'delete_user' : ActorMethod<[Principal], Result>,
-  'get_firmware_requests' : ActorMethod<[], Result_2>,
+  'get_aggregated_telemetry' : ActorMethod<[Principal], Result_2>,
+  'get_firmware_requests' : ActorMethod<[], Result_3>,
   'get_firmware_requests_by_user' : ActorMethod<[], Result>,
-  'get_user' : ActorMethod<[], Result_3>,
-  'get_user_agreements' : ActorMethod<[], Result_4>,
-  'get_vehicle' : ActorMethod<[Principal], Result_5>,
-  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_6>,
+  'get_user' : ActorMethod<[], Result_4>,
+  'get_user_agreements' : ActorMethod<[], Result_5>,
+  'get_vehicle' : ActorMethod<[Principal], Result_6>,
+  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_7>,
   'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
   'register_user' : ActorMethod<[Principal], Result>,
   'request_firmware' : ActorMethod<[], Result>,
