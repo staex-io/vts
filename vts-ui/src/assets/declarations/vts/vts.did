@@ -1,8 +1,4 @@
-type AggregatedTelemetry = record {
-  weekly_gas_usage : vec record { text; nat };
-  daily_gas_usage : vec record { text; nat };
-  monthly_gas_usage : vec record { text; nat };
-};
+type AggregationInterval = variant { Weekly; Daily; Monthly };
 type Agreement = record {
   id : nat;
   vehicles : vec record { principal; null };
@@ -26,7 +22,7 @@ type Error = variant {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };
-type Result_2 = variant { Ok : AggregatedTelemetry; Err : Error };
+type Result_2 = variant { Ok : vec record { text; nat }; Err : Error };
 type Result_3 = variant { Ok : principal; Err : Error };
 type Result_4 = variant { Ok : User; Err : Error };
 type Result_5 = variant { Ok : vec Agreement; Err : Error };
@@ -52,7 +48,9 @@ service : () -> {
   create_agreement : (text, principal, text, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);
-  get_aggregated_telemetry : (principal) -> (Result_2) query;
+  get_aggregated_telemetry : (principal, AggregationInterval) -> (
+      Result_2,
+    ) query;
   get_firmware_requests : () -> (Result_3) query;
   get_firmware_requests_by_user : () -> (Result) query;
   get_user : () -> (Result_4) query;

@@ -11,12 +11,15 @@ export const idlFactory = ({ IDL }) => {
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
-  const AggregatedTelemetry = IDL.Record({
-    'weekly_gas_usage' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
-    'daily_gas_usage' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
-    'monthly_gas_usage' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+  const AggregationInterval = IDL.Variant({
+    'Weekly' : IDL.Null,
+    'Daily' : IDL.Null,
+    'Monthly' : IDL.Null,
   });
-  const Result_2 = IDL.Variant({ 'Ok' : AggregatedTelemetry, 'Err' : Error });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
+    'Err' : Error,
+  });
   const Result_3 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
   const User = IDL.Record({
     'agreements' : IDL.Vec(IDL.Tuple(IDL.Nat, IDL.Null)),
@@ -67,7 +70,7 @@ export const idlFactory = ({ IDL }) => {
     'delete_admin' : IDL.Func([IDL.Principal], [Result], []),
     'delete_user' : IDL.Func([IDL.Principal], [Result], []),
     'get_aggregated_telemetry' : IDL.Func(
-        [IDL.Principal],
+        [IDL.Principal, AggregationInterval],
         [Result_2],
         ['query'],
       ),

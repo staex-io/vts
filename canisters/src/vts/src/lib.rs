@@ -115,14 +115,20 @@ pub struct Telemetry {
     pub t_type: TelemetryType,
 }
 
-#[derive(BEncode, BDecode, Debug, PartialEq, Eq, CandidType, Deserialize, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, CandidType, Deserialize, Clone, Default)]
 pub struct AggregatedTelemetry {
     daily_gas_usage: HashMap<String, u128>,
     weekly_gas_usage: HashMap<String, u128>,
     monthly_gas_usage: HashMap<String, u128>,
 }
-
 impl_storable!(AggregatedTelemetry);
+
+#[derive(CandidType, Deserialize, Debug)]
+enum AggregationInterval {
+    Daily,
+    Weekly,
+    Monthly,
+}
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Admin {
@@ -227,9 +233,18 @@ fn aggregate_telemetry_data() {
 }
 
 #[ic_cdk::query(guard = is_user)]
-fn get_aggregated_telemetry(vehicle: Principal) -> VTSResult<AggregatedTelemetry> {
-    AGGREGATED_TELEMETRY
-        .with(|aggregated_telemetry| aggregated_telemetry.borrow().get(&vehicle).ok_or(Error::NotFound))
+fn get_aggregated_telemetry(
+    vehicle: Principal,
+    interval: AggregationInterval,
+) -> VTSResult<HashMap<String, u128>> {
+    AGGREGATED_TELEMETRY.with(|aggregated_telemetry| {
+        let aggregated_data = aggregated_telemetry.borrow().get(&vehicle).ok_or(Error::NotFound)?;
+        match interval {
+            AggregationInterval::Daily => Ok(aggregated_data.daily_gas_usage.clone()),
+            AggregationInterval::Weekly => Ok(aggregated_data.weekly_gas_usage.clone()),
+            AggregationInterval::Monthly => Ok(aggregated_data.monthly_gas_usage.clone()),
+        }
+    })
 }
 
 #[ic_cdk::update]

@@ -2,11 +2,9 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface AggregatedTelemetry {
-  'weekly_gas_usage' : Array<[string, bigint]>,
-  'daily_gas_usage' : Array<[string, bigint]>,
-  'monthly_gas_usage' : Array<[string, bigint]>,
-}
+export type AggregationInterval = { 'Weekly' : null } |
+  { 'Daily' : null } |
+  { 'Monthly' : null };
 export interface Agreement {
   'id' : bigint,
   'vehicles' : Array<[Principal, null]>,
@@ -34,7 +32,7 @@ export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : AggregatedTelemetry } |
+export type Result_2 = { 'Ok' : Array<[string, bigint]> } |
   { 'Err' : Error };
 export type Result_3 = { 'Ok' : Principal } |
   { 'Err' : Error };
@@ -69,7 +67,10 @@ export interface _SERVICE {
   >,
   'delete_admin' : ActorMethod<[Principal], Result>,
   'delete_user' : ActorMethod<[Principal], Result>,
-  'get_aggregated_telemetry' : ActorMethod<[Principal], Result_2>,
+  'get_aggregated_telemetry' : ActorMethod<
+    [Principal, AggregationInterval],
+    Result_2
+  >,
   'get_firmware_requests' : ActorMethod<[], Result_3>,
   'get_firmware_requests_by_user' : ActorMethod<[], Result>,
   'get_user' : ActorMethod<[], Result_4>,
