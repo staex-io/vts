@@ -11,10 +11,7 @@ export interface Agreement {
   'vh_provider' : Principal,
   'vh_customer' : Principal,
 }
-export interface AgreementConditions {
-  'daily_usage_fee' : string,
-  'gas_price' : string,
-}
+export interface AgreementConditions { 'gas_price' : string }
 export type AgreementState = { 'Unsigned' : null } |
   { 'Signed' : null };
 export type Error = { 'InvalidSigner' : null } |
@@ -56,10 +53,7 @@ export interface Vehicle {
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
   'clean_state' : ActorMethod<[], undefined>,
-  'create_agreement' : ActorMethod<
-    [string, Principal, string, string],
-    Result_1
-  >,
+  'create_agreement' : ActorMethod<[string, Principal, string], Result_1>,
   'delete_admin' : ActorMethod<[Principal], Result>,
   'delete_user' : ActorMethod<[Principal], Result>,
   'get_firmware_requests' : ActorMethod<[], Result_2>,
