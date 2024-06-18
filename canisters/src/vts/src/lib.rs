@@ -119,16 +119,16 @@ pub struct TelemetryRequest {
 #[derive(Debug, PartialEq, Eq, CandidType, Deserialize, Clone, Default)]
 pub struct AggregatedTelemetry {
     daily_gas_usage: HashMap<String, u128>,
-    weekly_gas_usage: HashMap<String, u128>,
     monthly_gas_usage: HashMap<String, u128>,
+    yearly_gas_usage: HashMap<String, u128>,
 }
 impl_storable!(AggregatedTelemetry);
 
 #[derive(CandidType, Deserialize, Debug)]
 enum AggregationInterval {
     Daily,
-    Weekly,
     Monthly,
+    Yearly,
 }
 
 #[derive(CandidType, Deserialize, Debug)]
@@ -195,20 +195,20 @@ fn aggregate_telemetry_data() {
             };
 
             let mut daily_usage: HashMap<String, u128> = HashMap::new();
-            let mut weekly_usage: HashMap<String, u128> = HashMap::new();
             let mut monthly_usage: HashMap<String, u128> = HashMap::new();
+            let mut yearly_usage: HashMap<String, u128> = HashMap::new();
 
             if let Some(gas_data) = vehicle.telemetry.get_mut(&TelemetryType::Gas) {
-                gas_data.retain(|&timestamp| {
-                    let date = format!("{}", timestamp / 86400);
-                    let week = format!("{}", timestamp / (86400 * 7));
-                    let month = format!("{}", timestamp / (86400 * 30));
+                gas_data.retain(|_, &timestamp| {
+                    let date = format!("{}", *timestamp / 86400);
+                    let year = format!("{}", *timestamp / (86400 * 365));
+                    let month = format!("{}", *timestamp / (86400 * 30));
 
-                    *daily_usage.entry(date).or_insert(0) += timestamp;
-                    *weekly_usage.entry(week).or_insert(0) += timestamp;
-                    *monthly_usage.entry(month).or_insert(0) += timestamp;
+                    *daily_usage.entry(date).or_insert(0) += *timestamp;
+                    *yearly_usage.entry(year).or_insert(0) += *timestamp;
+                    *monthly_usage.entry(month).or_insert(0) += *timestamp;
 
-                    timestamp >= now - (86400 * 30 * 1_000_000_000)
+                    *timestamp >= now - (86400 * 30 * 1_000_000_000)
                 });
             }
 
@@ -216,9 +216,9 @@ fn aggregate_telemetry_data() {
                 let mut aggregated_telemetry = aggregated_telemetry.borrow_mut();
                 let entry = aggregated_telemetry.get(&vehicle_id).unwrap();
                 let mut new_entry = entry.clone();
-                new_entry.daily_gas_usage.extend(daily_usage);
-                new_entry.weekly_gas_usage.extend(weekly_usage);
-                new_entry.monthly_gas_usage.extend(monthly_usage);
+                new_entry.daily_gas_usage.extend(daily_usage.into_iter());
+                new_entry.monthly_gas_usage.extend(monthly_usage.into_iter());
+                new_entry.yearly_gas_usage.extend(yearly_usage.into_iter());
                 aggregated_telemetry.insert(vehicle_id, new_entry);
             });
 
@@ -238,8 +238,8 @@ fn get_aggregated_telemetry(
         let aggregated_data = aggregated_telemetry.borrow().get(&vehicle).ok_or(Error::NotFound)?;
         match interval {
             AggregationInterval::Daily => Ok(aggregated_data.daily_gas_usage.clone()),
-            AggregationInterval::Weekly => Ok(aggregated_data.weekly_gas_usage.clone()),
             AggregationInterval::Monthly => Ok(aggregated_data.monthly_gas_usage.clone()),
+            AggregationInterval::Yearly => Ok(aggregated_data.yearly_gas_usage.clone()),
         }
     })
 }
