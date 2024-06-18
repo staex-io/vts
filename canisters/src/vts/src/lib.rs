@@ -155,7 +155,6 @@ impl_storable!(Agreement);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct AgreementConditions {
-    daily_usage_fee: String,
     gas_price: String,
 }
 
@@ -309,12 +308,7 @@ fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
 }
 
 #[ic_cdk::update(guard = is_user)]
-fn create_agreement(
-    name: String,
-    vh_customer: Principal,
-    daily_usage_fee: String,
-    gas_price: String,
-) -> VTSResult<u128> {
+fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
 
@@ -333,7 +327,6 @@ fn create_agreement(
             state: AgreementState::Unsigned,
             conditions: AgreementConditions {
                 // todo: use decimals library to verify money parameters
-                daily_usage_fee,
                 gas_price,
             },
             vehicles: HashMap::new(),

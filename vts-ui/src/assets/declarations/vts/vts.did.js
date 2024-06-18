@@ -21,10 +21,7 @@ export const idlFactory = ({ IDL }) => {
     'Unsigned' : IDL.Null,
     'Signed' : IDL.Null,
   });
-  const AgreementConditions = IDL.Record({
-    'daily_usage_fee' : IDL.Text,
-    'gas_price' : IDL.Text,
-  });
+  const AgreementConditions = IDL.Record({ 'gas_price' : IDL.Text });
   const Agreement = IDL.Record({
     'id' : IDL.Nat,
     'vehicles' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
@@ -54,7 +51,7 @@ export const idlFactory = ({ IDL }) => {
     'add_admin' : IDL.Func([IDL.Principal], [Result], []),
     'clean_state' : IDL.Func([], [], []),
     'create_agreement' : IDL.Func(
-        [IDL.Text, IDL.Principal, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Principal, IDL.Text],
         [Result_1],
         [],
       ),
