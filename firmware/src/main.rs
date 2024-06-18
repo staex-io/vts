@@ -29,7 +29,7 @@ fn main() {
     loop {
         sleep(Duration::from_secs(1));
         let value: u128 = rng.gen_range(0..100);
-        let telemetry = vts::Telemetry {
+        let telemetry = vts::TelemetryRequest {
             value,
             t_type: vts::TelemetryType::Gas,
         };
