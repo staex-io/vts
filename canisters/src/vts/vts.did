@@ -8,7 +8,7 @@ type Agreement = record {
   vh_provider : principal;
   vh_customer : principal;
 };
-type AgreementConditions = record { daily_usage_fee : text; gas_price : text };
+type AgreementConditions = record { gas_price : text };
 type AgreementState = variant { Unsigned; Signed };
 type Error = variant {
   InvalidSigner;
@@ -45,7 +45,7 @@ type Vehicle = record {
 service : () -> {
   add_admin : (principal) -> (Result);
   clean_state : () -> ();
-  create_agreement : (text, principal, text, text) -> (Result_1);
+  create_agreement : (text, principal, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);
   get_aggregated_telemetry : (principal, AggregationInterval) -> (

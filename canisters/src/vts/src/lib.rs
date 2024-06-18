@@ -36,11 +36,10 @@ thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
         RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
 
-    static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
 
-    static FIRMWARE_REQUESTS: RefCell<StableBTreeMap<Principal, (), Memory>> = RefCell::new(
+    static ADMINS: RefCell<StableBTreeMap<Principal, Admin, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
     );
 
     static USERS: RefCell<StableBTreeMap<Principal, User, Memory>> = RefCell::new(
@@ -48,19 +47,21 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
     );
 
-    static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
-    );
 
+    static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
     static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
 
-    static ADMINS: RefCell<StableBTreeMap<Principal, Admin, Memory>> = RefCell::new(
+    static FIRMWARE_REQUESTS: RefCell<StableBTreeMap<Principal, (), Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
+    );
+
+    static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
 
     static AGGREGATED_TELEMETRY: RefCell<StableBTreeMap<Principal, AggregatedTelemetry, Memory>> = RefCell::new(
@@ -110,7 +111,7 @@ impl From<String> for Error {
 }
 
 #[derive(BEncode, BDecode)]
-pub struct Telemetry {
+pub struct TelemetryRequest {
     pub value: u128,
     pub t_type: TelemetryType,
 }
@@ -131,9 +132,7 @@ enum AggregationInterval {
 }
 
 #[derive(CandidType, Deserialize, Debug)]
-struct Admin {
-    public_key: Principal,
-}
+struct Admin {}
 impl_storable!(Admin);
 
 #[derive(CandidType, Deserialize, Debug)]
@@ -153,17 +152,16 @@ impl_storable!(User);
 struct Vehicle {
     owner: Principal,
     agreement: Option<u128>,
-    identity: Principal,
     public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
-    telemetry: HashMap<TelemetryType, Vec<u128>>,
+    telemetry: Telemetry,
 }
 impl_storable!(Vehicle);
+type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Agreement {
-    id: u128,
     name: String,
     vh_provider: Principal,
     vh_customer: Principal,
@@ -175,7 +173,6 @@ impl_storable!(Agreement);
 
 #[derive(CandidType, Deserialize, Debug)]
 struct AgreementConditions {
-    daily_usage_fee: String,
     gas_price: String,
 }
 
@@ -253,16 +250,11 @@ fn add_admin(new_admin: Principal) -> VTSResult<()> {
     ADMINS.with(|admins| {
         // If we just deployed canister we can add first admin to it.
         if admins.borrow().is_empty() {
-            admins.borrow_mut().insert(caller, Admin { public_key: caller });
+            admins.borrow_mut().insert(caller, Admin {});
             Ok(())
         } else {
             is_admin()?;
-            admins.borrow_mut().insert(
-                new_admin,
-                Admin {
-                    public_key: new_admin,
-                },
-            );
+            admins.borrow_mut().insert(new_admin, Admin {});
             Ok(())
         }
     })
@@ -370,11 +362,10 @@ fn upload_firmware(
             Vehicle {
                 owner: vh_customer,
                 agreement: None,
-                identity: vehicle,
                 public_key,
                 arch,
                 firmware,
-                telemetry: HashMap::from_iter(vec![(TelemetryType::Gas, vec![])]),
+                telemetry: HashMap::new(),
             },
         )
     });
@@ -397,12 +388,7 @@ fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
 }
 
 #[ic_cdk::update(guard = is_user)]
-fn create_agreement(
-    name: String,
-    vh_customer: Principal,
-    daily_usage_fee: String,
-    gas_price: String,
-) -> VTSResult<u128> {
+fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
 
@@ -414,14 +400,12 @@ fn create_agreement(
 
     AGREEMENTS.with(|agreements| {
         let agreement = Agreement {
-            id: next_agreement_id,
             name,
             vh_provider: caller,
             vh_customer,
             state: AgreementState::Unsigned,
             conditions: AgreementConditions {
                 // todo: use decimals library to verify money parameters
-                daily_usage_fee,
                 gas_price,
             },
             vehicles: HashMap::new(),
@@ -542,11 +526,23 @@ fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> V
     let verifying_key =
         VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
     verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
-    let telemetry: Telemetry = bincode::decode_from_slice(&data, bincode::config::standard())
+    let telemetry: TelemetryRequest = bincode::decode_from_slice(&data, bincode::config::standard())
         .map_err(|_| Error::DecodeTelemetry)?
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
-    vehicle.telemetry.get_mut(&telemetry.t_type).ok_or(Error::NotFound)?.push(telemetry.value);
+    let timestamp = ic_cdk::api::time();
+    let timestamp = time::OffsetDateTime::from_unix_timestamp(timestamp as i64).unwrap();
+    vehicle
+        .telemetry
+        .get_mut(&telemetry.t_type)
+        .ok_or(Error::NotFound)?
+        .get_mut(&timestamp.year())
+        .get_or_insert(&mut HashMap::new())
+        .get_mut(&(timestamp.month() as u8))
+        .get_or_insert(&mut HashMap::new())
+        .get_mut(&timestamp.day())
+        .get_or_insert(&mut Vec::new())
+        .push(telemetry.value);
     VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(principal, vehicle));
     Ok(())
 }
@@ -562,6 +558,84 @@ fn clean_state() {
     VEHICLES.with(|vehicles| vehicles.borrow_mut().clear_new());
     AGREEMENTS.with(|agreements| agreements.borrow_mut().clear_new());
     ADMINS.with(|admins| admins.borrow_mut().clear_new());
+}
+
+// We use this method only in tests to not restart dfx node.
+// To make pre-fill with some data for testing purposes.
+#[cfg(feature = "predefined_telemetry")]
+#[ic_cdk::update]
+fn fill_predefined_telemetry() {
+    let vh_provider: Principal =
+        Principal::from_text("s76co-mfsqq-uqz5p-jfdh2-z3izx-tnpp7-r5vwe-up6yj-va7ks-5s22x-eqe").unwrap();
+    let vh_customer: Principal =
+        Principal::from_text("xnufg-sj4kb-rjjc3-73zhk-3msse-3cqb7-qcfgt-kq5lq-s3w5v-mctsx-bae").unwrap();
+    let vehicle: Principal =
+        Principal::from_text("zddkf-v7muw-3zj2q-kwijg-ulgjf-lpj32-t5qvx-5l3yb-rarsi-pq5w6-3ae").unwrap();
+
+    const AGREEMENT_ID: u128 = 1;
+
+    // Initialize admin.
+    ADMINS.with(|admins| admins.borrow_mut().insert(vh_provider, Admin {}));
+    // Add customer to users storage.
+    USERS.with(|users| {
+        users.borrow_mut().insert(
+            vh_customer,
+            User {
+                vehicles: HashMap::from_iter(vec![(vehicle, ())]),
+                agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
+            },
+        )
+    });
+
+    // Initialize agreement.
+    AGREEMENTS.with(|agreements| {
+        agreements.borrow_mut().insert(
+            AGREEMENT_ID,
+            Agreement {
+                name: String::from("Test Agreement"),
+                vh_provider,
+                vh_customer,
+                state: AgreementState::Signed,
+                conditions: AgreementConditions {
+                    gas_price: String::from("1.35"),
+                },
+                vehicles: HashMap::from_iter(vec![(vehicle, ())]),
+            },
+        )
+    });
+    AGREEMENT_ID_COUNTER.set(AGREEMENT_ID + 1);
+
+    // Add one pending firmware request.
+    FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().insert(vh_customer, ()));
+
+    // Initialize vehicle.
+    VEHICLES.with(|vehicles| {
+        vehicles.borrow_mut().insert(
+            vehicle,
+            Vehicle {
+                owner: vh_customer,
+                agreement: Some(AGREEMENT_ID),
+                public_key: Vec::new(),
+                arch: String::from("amd64"),
+                firmware: Vec::new(),
+                telemetry: HashMap::from_iter(vec![(
+                    TelemetryType::Gas,
+                    HashMap::from_iter(vec![(
+                        2024,
+                        HashMap::from_iter(vec![(
+                            time::Month::June as u8,
+                            HashMap::from_iter(vec![
+                                (15, vec![96, 86]),
+                                (16, vec![52]),
+                                (17, vec![991, 51]),
+                                (18, vec![71, 23, 17]),
+                            ]),
+                        )]),
+                    )]),
+                )]),
+            },
+        )
+    });
 }
 
 fn is_admin() -> Result<(), String> {

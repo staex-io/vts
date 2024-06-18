@@ -15,7 +15,8 @@ struct CanisterId {
 }
 
 pub async fn init_agent() -> (Agent, Principal) {
-    let identity = Secp256k1Identity::from_pem_file("../../identity.pem").unwrap();
+    let secret_key = k256::SecretKey::random(&mut rand::thread_rng());
+    let identity = Secp256k1Identity::from_private_key(secret_key);
     eprintln!("\nAgent sender is: {:?}", identity.sender().unwrap().to_string());
     let agent = Agent::builder().with_url("http://127.0.0.1:7777").with_identity(identity).build().unwrap();
     agent.fetch_root_key().await.unwrap();
