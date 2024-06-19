@@ -69,6 +69,9 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
+    // We need to store pending invoices for gateway.
+    // Gateway proceed with pending invoice to send some notification for the user.
+    // And delete them from this structure.
     static PENDING_INVOICES: RefCell<StableBTreeMap<u128, (), Memory>> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
@@ -143,6 +146,7 @@ enum AgreementState {
 struct User {
     vehicles: HashMap<Principal, ()>,
     agreements: HashMap<u128, ()>,
+    email: Option<String>,
 }
 impl_storable!(User);
 
@@ -165,6 +169,13 @@ struct Invoice {
     vehicle: Principal,
 }
 impl_storable!(Invoice);
+
+#[derive(CandidType, Deserialize)]
+pub struct PendingInvoice {
+    pub id: u128,
+    pub customer_email: Option<String>,
+    pub vehicle: Principal,
+}
 
 #[derive(CandidType, Deserialize)]
 struct Agreement {
@@ -214,7 +225,7 @@ fn delete_admin(admin: Principal) -> VTSResult<()> {
 }
 
 #[ic_cdk::update(guard = is_admin)]
-fn register_user(user: Principal) -> VTSResult<()> {
+fn register_user(user: Principal, email: Option<String>) -> VTSResult<()> {
     if USERS.with(|users| users.borrow().contains_key(&user)) {
         return Err(Error::AlreadyExists);
     }
@@ -225,6 +236,7 @@ fn register_user(user: Principal) -> VTSResult<()> {
             User {
                 vehicles: HashMap::new(),
                 agreements: HashMap::new(),
+                email,
             },
         );
     });
@@ -494,6 +506,43 @@ fn store_telemetry(
     Ok(StoreTelemetryResponse::On)
 }
 
+#[ic_cdk::query]
+fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
+    let pending_invoices_ids: Vec<u128> =
+        PENDING_INVOICES.with(|invoices| invoices.borrow().iter().map(|value| value.0).collect());
+    let pending_invoices: Vec<PendingInvoice> =
+        INVOICES.with(|invoices| -> VTSResult<Vec<PendingInvoice>> {
+            let mut pending_invoices: Vec<PendingInvoice> = Vec::new();
+            for pending_invoice_id in pending_invoices_ids {
+                let invoice = invoices.borrow().get(&pending_invoice_id).ok_or(Error::NotFound)?;
+                let vehicle = VEHICLES.with(|vehicles| -> VTSResult<Vehicle> {
+                    vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)
+                })?;
+                let owner: User = USERS.with(|users| -> VTSResult<User> {
+                    users.borrow().get(&vehicle.owner).ok_or(Error::NotFound)
+                })?;
+                pending_invoices.push(PendingInvoice {
+                    id: pending_invoice_id,
+                    customer_email: owner.email,
+                    vehicle: invoice.vehicle,
+                });
+            }
+            Ok(pending_invoices)
+        })?;
+    Ok(pending_invoices)
+}
+
+#[ic_cdk::update]
+fn delete_pending_invoices(ids: Vec<u128>) {
+    // todo: this canister method should be executed only by our gateway
+    INVOICES.with(|invoices| {
+        let mut invoices = invoices.borrow_mut();
+        for id in ids {
+            invoices.remove(&id);
+        }
+    });
+}
+
 // We use this method only in tests to not restart dfx node.
 // And make every test with clean state.
 #[cfg(feature = "clean_state")]
@@ -530,6 +579,7 @@ fn fill_predefined_telemetry() {
             User {
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
                 agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
+                email: None,
             },
         )
     });
