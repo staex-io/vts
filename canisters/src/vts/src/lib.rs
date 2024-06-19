@@ -63,18 +63,28 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
+
+    static INVOICE_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
+    static INVOICES: RefCell<StableBTreeMap<u128, Invoice, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
+    static PENDING_INVOICES: RefCell<StableBTreeMap<u128, (), Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
-#[derive(BEncode, BDecode, Debug, PartialEq, Eq, Hash, CandidType, Deserialize)]
+#[derive(BEncode, BDecode, PartialEq, Eq, Hash, CandidType, Deserialize, Debug)]
 pub enum TelemetryType {
     Gas,
 }
 
-#[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
+#[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
 pub enum Error {
     #[default]
     Internal,
@@ -106,22 +116,30 @@ impl From<String> for Error {
 }
 
 #[derive(BEncode, BDecode)]
-pub struct TelemetryRequest {
+pub struct StoreTelemetryRequest {
     pub value: u128,
     pub t_type: TelemetryType,
 }
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(BEncode, BDecode, CandidType, Deserialize)]
+pub enum StoreTelemetryResponse {
+    // Vehicle can continue to work.
+    On,
+    // Vehicle cannot continue to work and should turned off.
+    Off,
+}
+
+#[derive(CandidType, Deserialize)]
 struct Admin {}
 impl_storable!(Admin);
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 enum AgreementState {
     Unsigned,
     Signed,
 }
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 struct User {
     vehicles: HashMap<Principal, ()>,
     agreements: HashMap<u128, ()>,
@@ -136,11 +154,19 @@ struct Vehicle {
     arch: String,
     firmware: Vec<u8>,
     telemetry: Telemetry,
+    on_off: bool,
 }
 impl_storable!(Vehicle);
+
 type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
+struct Invoice {
+    vehicle: Principal,
+}
+impl_storable!(Invoice);
+
+#[derive(CandidType, Deserialize)]
 struct Agreement {
     name: String,
     vh_provider: Principal,
@@ -151,7 +177,7 @@ struct Agreement {
 }
 impl_storable!(Agreement);
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 struct AgreementConditions {
     gas_price: String,
 }
@@ -278,6 +304,7 @@ fn upload_firmware(
                 arch,
                 firmware,
                 telemetry: HashMap::new(),
+                on_off: true,
             },
         )
     });
@@ -432,18 +459,23 @@ fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal,
 }
 
 #[ic_cdk::update]
-fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTSResult<()> {
+fn store_telemetry(
+    principal: Principal,
+    data: Vec<u8>,
+    signature: Vec<u8>,
+) -> VTSResult<StoreTelemetryResponse> {
     let signature = Signature::from_slice(&signature).map_err(|_| Error::InvalidSignatureFormat)?;
     let mut vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&principal).ok_or(Error::NotFound))?;
     let verifying_key =
         VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
     verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
-    let telemetry: TelemetryRequest = bincode::decode_from_slice(&data, bincode::config::standard())
+    let telemetry: StoreTelemetryRequest = bincode::decode_from_slice(&data, bincode::config::standard())
         .map_err(|_| Error::DecodeTelemetry)?
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
     let timestamp = time::OffsetDateTime::from_unix_timestamp(timestamp as i64).unwrap();
+    let on_off = vehicle.on_off;
     vehicle
         .telemetry
         .get_mut(&telemetry.t_type)
@@ -456,7 +488,10 @@ fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> V
         .get_or_insert(&mut Vec::new())
         .push(telemetry.value);
     VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(principal, vehicle));
-    Ok(())
+    if !on_off {
+        return Ok(StoreTelemetryResponse::Off);
+    }
+    Ok(StoreTelemetryResponse::On)
 }
 
 // We use this method only in tests to not restart dfx node.
@@ -545,6 +580,7 @@ fn fill_predefined_telemetry() {
                         )]),
                     )]),
                 )]),
+                on_off: true,
             },
         )
     });

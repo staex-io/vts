@@ -17,7 +17,7 @@ use tokio::{
     sync::watch,
     time::{sleep, timeout},
 };
-use vts::VTSResult;
+use vts::{StoreTelemetryResponse, VTSResult};
 use zip::write::SimpleFileOptions;
 
 const FIRMWARE_PATH: &str = "../target/debug/firmware";
@@ -263,14 +263,19 @@ async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
     match req {
         Request::StoreTelemetry(telemetry) => {
             let principal = Principal::from_slice(&telemetry.principal);
-            state
+            let res = state
                 .agent
                 .update(&state.canister_id, "store_telemetry")
                 .with_effective_canister_id(state.canister_id)
                 .with_arg(Encode!(&principal, &telemetry.telemetry, &telemetry.signature)?)
                 .call_and_wait()
                 .await?;
-            Ok(Response::Ok)
+            let res = Decode!(res.as_slice(), StoreTelemetryResponse)?;
+            let res = match res {
+                StoreTelemetryResponse::On => Response::TurnOn,
+                StoreTelemetryResponse::Off => Response::TurnOff,
+            };
+            Ok(res)
         }
     }
 }

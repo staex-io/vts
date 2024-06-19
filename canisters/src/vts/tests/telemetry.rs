@@ -19,7 +19,7 @@ async fn test_telemetry() {
 
     upload_firmware(&agent, canister_id, agent.get_principal().unwrap(), public_key).await.unwrap();
 
-    let telemetry = vts::TelemetryRequest {
+    let telemetry = vts::StoreTelemetryRequest {
         value: 88,
         t_type: TelemetryType::Gas,
     };
