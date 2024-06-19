@@ -63,18 +63,13 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
-
-    static AGGREGATED_TELEMETRY: RefCell<StableBTreeMap<Principal, AggregatedTelemetry, Memory>> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))))
-    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
-#[derive(BEncode, BDecode, Debug, PartialEq, Eq, Hash, CandidType, Deserialize)]
+#[derive(BEncode, BDecode, Debug, PartialEq, Eq, Hash, CandidType, Deserialize, Clone, Copy)]
 pub enum TelemetryType {
     Gas,
 }
@@ -116,15 +111,14 @@ pub struct TelemetryRequest {
     pub t_type: TelemetryType,
 }
 
-#[derive(Debug, PartialEq, Eq, CandidType, Deserialize, Clone, Default)]
-pub struct AggregatedTelemetry {
-    daily_gas_usage: HashMap<String, u128>,
-    monthly_gas_usage: HashMap<String, u128>,
-    yearly_gas_usage: HashMap<String, u128>,
+#[derive(CandidType, Deserialize, Debug, Clone)]
+struct AccumulatedTelemetry {
+    daily: HashMap<String, u32>,
+    monthly: HashMap<String, u32>,
+    yearly: HashMap<String, u32>,
 }
-impl_storable!(AggregatedTelemetry);
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
 enum AggregationInterval {
     Daily,
     Monthly,
@@ -156,9 +150,11 @@ struct Vehicle {
     arch: String,
     firmware: Vec<u8>,
     telemetry: Telemetry,
+    accumulated_telemetry: AccumTelemetry,
 }
 impl_storable!(Vehicle);
 type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
+type AccumTelemetry = HashMap<TelemetryType, HashMap<AggregationInterval, AccumulatedTelemetry>>;
 
 #[derive(CandidType, Deserialize, Debug)]
 struct Agreement {
@@ -179,68 +175,110 @@ struct AgreementConditions {
 #[ic_cdk::init]
 fn init() {
     ic_cdk_timers::set_timer_interval(std::time::Duration::from_secs(86400), || {
-        aggregate_telemetry_data();
+        let _ = accumulate_telemetry_data();
     });
 }
 
-fn aggregate_telemetry_data() {
-    let now: u128 = ic_cdk::api::time().into();
-
+#[ic_cdk::update]
+fn accumulate_telemetry_data() -> Result<(), Error> {
     VEHICLES.with(|vehicles| {
-        let vehicle_ids: Vec<Principal> = vehicles.borrow().iter().map(|(k, _)| k).collect();
-        for vehicle_id in vehicle_ids {
-            let mut vehicle = match get_vehicle(vehicle_id) {
-                Ok(vehicle) => vehicle,
-                Err(_) => continue,
-            };
-
-            let mut daily_usage: HashMap<String, u128> = HashMap::new();
-            let mut monthly_usage: HashMap<String, u128> = HashMap::new();
-            let mut yearly_usage: HashMap<String, u128> = HashMap::new();
-
-            if let Some(gas_data) = vehicle.telemetry.get_mut(&TelemetryType::Gas) {
-                gas_data.retain(|_, &timestamp| {
-                    let date = format!("{}", *timestamp / 86400);
-                    let year = format!("{}", *timestamp / (86400 * 365));
-                    let month = format!("{}", *timestamp / (86400 * 30));
-
-                    *daily_usage.entry(date).or_insert(0) += *timestamp;
-                    *yearly_usage.entry(year).or_insert(0) += *timestamp;
-                    *monthly_usage.entry(month).or_insert(0) += *timestamp;
-
-                    *timestamp >= now - (86400 * 30 * 1_000_000_000)
-                });
+        let vehicles = vehicles.borrow_mut();
+        for (_, mut vehicle) in vehicles.iter() {
+            for (telemetry_type, telemetry_data) in vehicle.telemetry.iter_mut() {
+                vehicle.accumulated_telemetry.entry(*telemetry_type).or_insert_with(HashMap::new);
+                for (year, year_data) in telemetry_data.iter_mut() {
+                    vehicle
+                        .accumulated_telemetry
+                        .get_mut(&telemetry_type.clone())
+                        .unwrap()
+                        .entry(AggregationInterval::Yearly)
+                        .or_insert_with(|| AccumulatedTelemetry {
+                            daily: HashMap::new(),
+                            monthly: HashMap::new(),
+                            yearly: HashMap::new(),
+                        })
+                        .yearly
+                        .insert((*year).to_string(), 0);
+                    for (month, month_data) in year_data.iter_mut() {
+                        vehicle
+                            .accumulated_telemetry
+                            .get_mut(telemetry_type)
+                            .unwrap()
+                            .entry(AggregationInterval::Monthly)
+                            .or_insert_with(|| AccumulatedTelemetry {
+                                daily: HashMap::new(),
+                                monthly: HashMap::new(),
+                                yearly: HashMap::new(),
+                            })
+                            .monthly
+                            .insert((*month).to_string(), 0);
+                        for (day, day_data) in month_data.iter_mut() {
+                            vehicle
+                                .accumulated_telemetry
+                                .get_mut(telemetry_type)
+                                .unwrap()
+                                .entry(AggregationInterval::Daily)
+                                .or_insert_with(|| AccumulatedTelemetry {
+                                    daily: HashMap::new(),
+                                    monthly: HashMap::new(),
+                                    yearly: HashMap::new(),
+                                })
+                                .daily
+                                .insert((*day).to_string(), 0);
+                            for value in day_data.iter() {
+                                vehicle
+                                    .accumulated_telemetry
+                                    .get_mut(telemetry_type)
+                                    .unwrap()
+                                    .entry(AggregationInterval::Yearly)
+                                    .or_insert_with(|| AccumulatedTelemetry {
+                                        daily: HashMap::new(),
+                                        monthly: HashMap::new(),
+                                        yearly: HashMap::new(),
+                                    })
+                                    .yearly
+                                    .entry((*year).to_string())
+                                    .and_modify(|v| *v += *value as u32)
+                                    .or_insert(*value as u32);
+                                vehicle
+                                    .accumulated_telemetry
+                                    .get_mut(telemetry_type)
+                                    .unwrap()
+                                    .entry(AggregationInterval::Monthly)
+                                    .or_insert_with(|| AccumulatedTelemetry {
+                                        daily: HashMap::new(),
+                                        monthly: HashMap::new(),
+                                        yearly: HashMap::new(),
+                                    })
+                                    .monthly
+                                    .entry((*month).to_string())
+                                    .and_modify(|v| *v += *value as u32)
+                                    .or_insert(*value as u32);
+                                vehicle
+                                    .accumulated_telemetry
+                                    .get_mut(telemetry_type)
+                                    .unwrap()
+                                    .entry(AggregationInterval::Daily)
+                                    .or_insert_with(|| AccumulatedTelemetry {
+                                        daily: HashMap::new(),
+                                        monthly: HashMap::new(),
+                                        yearly: HashMap::new(),
+                                    })
+                                    .daily
+                                    .entry((*day).to_string())
+                                    .and_modify(|v| *v += *value as u32)
+                                    .or_insert(*value as u32);
+                            }
+                            day_data.clear();
+                        }
+                        month_data.clear();
+                    }
+                    year_data.clear();
+                }
             }
-
-            AGGREGATED_TELEMETRY.with(|aggregated_telemetry| {
-                let mut aggregated_telemetry = aggregated_telemetry.borrow_mut();
-                let entry = aggregated_telemetry.get(&vehicle_id).unwrap();
-                let mut new_entry = entry.clone();
-                new_entry.daily_gas_usage.extend(daily_usage.into_iter());
-                new_entry.monthly_gas_usage.extend(monthly_usage.into_iter());
-                new_entry.yearly_gas_usage.extend(yearly_usage.into_iter());
-                aggregated_telemetry.insert(vehicle_id, new_entry);
-            });
-
-            VEHICLES.with(|vehicles| {
-                vehicles.borrow_mut().insert(vehicle_id, vehicle);
-            });
+            VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(vehicle.owner, vehicle));
         }
-    });
-}
-
-#[ic_cdk::query(guard = is_user)]
-fn get_aggregated_telemetry(
-    vehicle: Principal,
-    interval: AggregationInterval,
-) -> VTSResult<HashMap<String, u128>> {
-    AGGREGATED_TELEMETRY.with(|aggregated_telemetry| {
-        let aggregated_data = aggregated_telemetry.borrow().get(&vehicle).ok_or(Error::NotFound)?;
-        match interval {
-            AggregationInterval::Daily => Ok(aggregated_data.daily_gas_usage.clone()),
-            AggregationInterval::Monthly => Ok(aggregated_data.monthly_gas_usage.clone()),
-            AggregationInterval::Yearly => Ok(aggregated_data.yearly_gas_usage.clone()),
-        }
+        Ok(())
     })
 }
 
@@ -366,6 +404,7 @@ fn upload_firmware(
                 arch,
                 firmware,
                 telemetry: HashMap::new(),
+                accumulated_telemetry: HashMap::new(),
             },
         )
     });
@@ -633,6 +672,7 @@ fn fill_predefined_telemetry() {
                         )]),
                     )]),
                 )]),
+                accumulated_telemetry: HashMap::new(),
             },
         )
     });
