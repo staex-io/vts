@@ -282,6 +282,8 @@ fn accumulate_telemetry_data() -> Result<(), Error> {
     })
 }
 
+// TODO: implement get_aggregated_telemetry
+
 #[ic_cdk::update]
 fn add_admin(new_admin: Principal) -> VTSResult<()> {
     let caller = ic_cdk::api::caller();
