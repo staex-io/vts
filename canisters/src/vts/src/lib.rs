@@ -118,6 +118,13 @@ struct AccumulatedTelemetry {
     yearly: HashMap<String, u32>,
 }
 
+#[derive(CandidType, Deserialize, Debug, Clone)]
+struct AggregatedData {
+    yearly: HashMap<String, u32>,
+    monthly: HashMap<String, u32>,
+    daily: HashMap<String, u32>,
+}
+
 #[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
 enum AggregationInterval {
     Daily,
@@ -177,6 +184,11 @@ fn init() {
     ic_cdk_timers::set_timer_interval(std::time::Duration::from_secs(86400), || {
         let _ = accumulate_telemetry_data();
     });
+}
+
+#[ic_cdk::update]
+fn accumulate_telemetry_data_now() -> Result<(), Error> {
+    accumulate_telemetry_data()
 }
 
 #[ic_cdk::update]
@@ -282,7 +294,32 @@ fn accumulate_telemetry_data() -> Result<(), Error> {
     })
 }
 
-// TODO: implement get_aggregated_telemetry
+#[ic_cdk::update(guard = is_user)]
+fn get_aggregated_data(vehicle_id: Principal) -> Result<HashMap<TelemetryType, AggregatedData>, Error> {
+    VEHICLES.with(|vehicles| {
+        let vehicles = vehicles.borrow();
+        if let Some(vehicle) = vehicles.get(&vehicle_id) {
+            let mut result = HashMap::new();
+            for (telemetry_type, intervals) in &vehicle.accumulated_telemetry {
+                let aggregated_data = AggregatedData {
+                    daily: intervals
+                        .get(&AggregationInterval::Daily)
+                        .map_or(HashMap::new(), |data| data.daily.clone()),
+                    monthly: intervals
+                        .get(&AggregationInterval::Monthly)
+                        .map_or(HashMap::new(), |data| data.monthly.clone()),
+                    yearly: intervals
+                        .get(&AggregationInterval::Yearly)
+                        .map_or(HashMap::new(), |data| data.yearly.clone()),
+                };
+                result.insert(*telemetry_type, aggregated_data);
+            }
+            Ok(result)
+        } else {
+            Err(Error::NotFound)
+        }
+    })
+}
 
 #[ic_cdk::update]
 fn add_admin(new_admin: Principal) -> VTSResult<()> {
