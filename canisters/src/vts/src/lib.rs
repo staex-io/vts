@@ -711,7 +711,21 @@ fn fill_predefined_telemetry() {
                         )]),
                     )]),
                 )]),
-                accumulated_telemetry: HashMap::new(),
+                accumulated_telemetry: HashMap::from_iter(vec![(
+                    TelemetryType::Gas,
+                    HashMap::from_iter(vec![(
+                        AggregationInterval::Daily,
+                        AccumulatedTelemetry {
+                            daily: HashMap::from_iter(vec![
+                                ("15".to_string(), 96 + 86),
+                                ("16".to_string(), 52),
+                                ("17".to_string(), 991 + 51),
+                            ]),
+                            monthly: HashMap::from_iter(vec![("06".to_string(), 3000)]),
+                            yearly: HashMap::from_iter(vec![("2024".to_string(), 36000)]),
+                        },
+                    )]),
+                )]),
             },
         )
     });
