@@ -118,11 +118,11 @@ struct AccumulatedTelemetry {
     yearly: HashMap<String, u32>,
 }
 
-#[derive(CandidType, Deserialize, Debug, Clone)]
-struct AggregatedData {
-    yearly: HashMap<String, u32>,
-    monthly: HashMap<String, u32>,
-    daily: HashMap<String, u32>,
+#[derive(CandidType, Deserialize, Debug, Clone, PartialEq)]
+pub struct AggregatedData {
+    pub yearly: HashMap<String, u32>,
+    pub monthly: HashMap<String, u32>,
+    pub daily: HashMap<String, u32>,
 }
 
 #[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
