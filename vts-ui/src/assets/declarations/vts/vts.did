@@ -1,5 +1,10 @@
+type AggregatedData = record {
+  monthly : vec record { text; nat32 };
+  yearly : vec record { text; nat32 };
+  daily : vec record { text; nat32 };
+};
+type AggregationInterval = variant { Daily; Monthly; Yearly };
 type Agreement = record {
-  id : nat;
   vehicles : vec record { principal; null };
   name : text;
   state : AgreementState;
@@ -21,37 +26,51 @@ type Error = variant {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };
-type Result_2 = variant { Ok : principal; Err : Error };
-type Result_3 = variant { Ok : User; Err : Error };
-type Result_4 = variant { Ok : vec Agreement; Err : Error };
-type Result_5 = variant { Ok : Vehicle; Err : Error };
-type Result_6 = variant { Ok : vec record { principal; null }; Err : Error };
+type Result_2 = variant {
+  Ok : vec record { TelemetryType; AggregatedData };
+  Err : Error;
+};
+type Result_3 = variant { Ok : principal; Err : Error };
+type Result_4 = variant { Ok : User; Err : Error };
+type Result_5 = variant { Ok : vec Agreement; Err : Error };
+type Result_6 = variant { Ok : Vehicle; Err : Error };
+type Result_7 = variant { Ok : vec record { principal; null }; Err : Error };
 type TelemetryType = variant { Gas };
 type User = record {
   agreements : vec record { nat; null };
   vehicles : vec record { principal; null };
 };
 type Vehicle = record {
-  telemetry : vec record { TelemetryType; vec nat };
+  telemetry : vec record {
+    TelemetryType;
+    vec record { int32; vec record { nat8; vec record { nat8; vec nat } } };
+  };
   public_key : blob;
   owner : principal;
   arch : text;
   agreement : opt nat;
   firmware : blob;
-  identity : principal;
+  accumulated_telemetry : vec record {
+    TelemetryType;
+    vec record { AggregationInterval; AggregatedData };
+  };
 };
-service : {
+service : () -> {
+  accumulate_telemetry_data : () -> (Result);
+  accumulate_telemetry_data_now : () -> (Result);
   add_admin : (principal) -> (Result);
   clean_state : () -> ();
   create_agreement : (text, principal, text) -> (Result_1);
   delete_admin : (principal) -> (Result);
   delete_user : (principal) -> (Result);
-  get_firmware_requests : () -> (Result_2) query;
+  fill_predefined_telemetry : () -> ();
+  get_aggregated_data : (principal) -> (Result_2);
+  get_firmware_requests : () -> (Result_3) query;
   get_firmware_requests_by_user : () -> (Result) query;
-  get_user : () -> (Result_3) query;
-  get_user_agreements : () -> (Result_4) query;
-  get_vehicle : (principal) -> (Result_5) query;
-  get_vehicles_by_agreement : (nat) -> (Result_6) query;
+  get_user : () -> (Result_4) query;
+  get_user_agreements : () -> (Result_5) query;
+  get_vehicle : (principal) -> (Result_6) query;
+  get_vehicles_by_agreement : (nat) -> (Result_7) query;
   link_vehicle : (nat, principal) -> (Result);
   register_user : (principal) -> (Result);
   request_firmware : () -> (Result);
