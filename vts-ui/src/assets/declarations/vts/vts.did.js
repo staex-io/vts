@@ -22,12 +22,21 @@ export const idlFactory = ({ IDL }) => {
     'Err' : Error,
   });
   const Result_3 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
+  const PendingInvoice = IDL.Record({
+    'id' : IDL.Nat,
+    'vehicle' : IDL.Principal,
+    'customer_email' : IDL.Opt(IDL.Text),
+  });
+  const Result_4 = IDL.Variant({
+    'Ok' : IDL.Vec(PendingInvoice),
+    'Err' : Error,
+  });
   const User = IDL.Record({
     'agreements' : IDL.Vec(IDL.Tuple(IDL.Nat, IDL.Null)),
     'vehicles' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
     'email' : IDL.Opt(IDL.Text),
   });
-  const Result_4 = IDL.Variant({ 'Ok' : User, 'Err' : Error });
+  const Result_5 = IDL.Variant({ 'Ok' : User, 'Err' : Error });
   const AgreementState = IDL.Variant({
     'Unsigned' : IDL.Null,
     'Signed' : IDL.Null,
@@ -41,7 +50,7 @@ export const idlFactory = ({ IDL }) => {
     'vh_provider' : IDL.Principal,
     'vh_customer' : IDL.Principal,
   });
-  const Result_5 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
+  const Result_6 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
   const AggregationInterval = IDL.Variant({
     'Daily' : IDL.Null,
     'Monthly' : IDL.Null,
@@ -75,9 +84,10 @@ export const idlFactory = ({ IDL }) => {
         IDL.Vec(IDL.Tuple(AggregationInterval, AggregatedData)),
       )
     ),
+    'on_off' : IDL.Bool,
   });
-  const Result_6 = IDL.Variant({ 'Ok' : Vehicle, 'Err' : Error });
-  const Result_7 = IDL.Variant({
+  const Result_7 = IDL.Variant({ 'Ok' : Vehicle, 'Err' : Error });
+  const Result_8 = IDL.Variant({
     'Ok' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
     'Err' : Error,
   });
@@ -85,7 +95,7 @@ export const idlFactory = ({ IDL }) => {
     'On' : IDL.Null,
     'Off' : IDL.Null,
   });
-  const Result_8 = IDL.Variant({
+  const Result_9 = IDL.Variant({
     'Ok' : StoreTelemetryResponse,
     'Err' : Error,
   });
@@ -106,10 +116,11 @@ export const idlFactory = ({ IDL }) => {
     'get_aggregated_data' : IDL.Func([IDL.Principal], [Result_2], []),
     'get_firmware_requests' : IDL.Func([], [Result_3], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result], ['query']),
-    'get_user' : IDL.Func([], [Result_4], ['query']),
-    'get_user_agreements' : IDL.Func([], [Result_5], ['query']),
-    'get_vehicle' : IDL.Func([IDL.Principal], [Result_6], ['query']),
-    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_7], ['query']),
+    'get_pending_invoices' : IDL.Func([], [Result_4], ['query']),
+    'get_user' : IDL.Func([], [Result_5], ['query']),
+    'get_user_agreements' : IDL.Func([], [Result_6], ['query']),
+    'get_vehicle' : IDL.Func([IDL.Principal], [Result_7], ['query']),
+    'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_8], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result], []),
     'register_user' : IDL.Func(
         [IDL.Principal, IDL.Opt(IDL.Text)],
@@ -120,7 +131,7 @@ export const idlFactory = ({ IDL }) => {
     'sign_agreement' : IDL.Func([IDL.Nat], [Result], []),
     'store_telemetry' : IDL.Func(
         [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Vec(IDL.Nat8)],
-        [Result_8],
+        [Result_9],
         [],
       ),
     'upload_firmware' : IDL.Func(

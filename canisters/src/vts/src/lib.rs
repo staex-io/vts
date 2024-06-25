@@ -82,7 +82,10 @@ pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
-#[derive(BEncode, BDecode, PartialEq, Eq, Hash, CandidType, Deserialize, Debug)]
+type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
+type AccumTelemetry = HashMap<TelemetryType, HashMap<AggregationInterval, AccumulatedTelemetry>>;
+
+#[derive(BEncode, BDecode, PartialEq, Eq, Hash, CandidType, Deserialize, Debug, Clone, Copy)]
 pub enum TelemetryType {
     Gas,
 }
@@ -118,34 +121,12 @@ impl From<String> for Error {
     }
 }
 
-#[derive(BEncode, BDecode)]
-pub struct StoreTelemetryRequest {
-    pub value: u128,
-    pub t_type: TelemetryType,
-}
-
 #[derive(BEncode, BDecode, CandidType, Deserialize)]
 pub enum StoreTelemetryResponse {
     // Vehicle can continue to work.
     On,
     // Vehicle cannot continue to work and should turned off.
     Off,
-}
-
-#[derive(CandidType, Deserialize)]
-#[derive(CandidType, Deserialize, Debug, Clone)]
-struct AccumulatedTelemetry {
-    daily: HashMap<String, u32>,
-    monthly: HashMap<String, u32>,
-    yearly: HashMap<String, u32>,
-}
-
-// todo: move
-#[derive(CandidType, Deserialize, Debug, Clone, PartialEq)]
-pub struct AggregatedData {
-    pub yearly: HashMap<String, u32>,
-    pub monthly: HashMap<String, u32>,
-    pub daily: HashMap<String, u32>,
 }
 
 #[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
@@ -155,15 +136,42 @@ enum AggregationInterval {
     Yearly,
 }
 
-#[derive(CandidType, Deserialize, Debug)]
-struct Admin {}
-impl_storable!(Admin);
-
 #[derive(CandidType, Deserialize)]
 enum AgreementState {
     Unsigned,
     Signed,
 }
+
+#[derive(BEncode, BDecode)]
+pub struct StoreTelemetryRequest {
+    pub value: u128,
+    pub t_type: TelemetryType,
+}
+
+#[derive(CandidType, Deserialize, Debug, Clone, PartialEq)]
+pub struct AggregatedData {
+    pub yearly: HashMap<String, u32>,
+    pub monthly: HashMap<String, u32>,
+    pub daily: HashMap<String, u32>,
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct PendingInvoice {
+    pub id: u128,
+    pub customer_email: Option<String>,
+    pub vehicle: Principal,
+}
+
+#[derive(CandidType, Deserialize)]
+struct AccumulatedTelemetry {
+    daily: HashMap<String, u32>,
+    monthly: HashMap<String, u32>,
+    yearly: HashMap<String, u32>,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Admin {}
+impl_storable!(Admin);
 
 #[derive(CandidType, Deserialize)]
 struct User {
@@ -186,21 +194,11 @@ struct Vehicle {
 }
 impl_storable!(Vehicle);
 
-type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
-type AccumTelemetry = HashMap<TelemetryType, HashMap<AggregationInterval, AccumulatedTelemetry>>;
-
 #[derive(CandidType, Deserialize)]
 struct Invoice {
     vehicle: Principal,
 }
 impl_storable!(Invoice);
-
-#[derive(CandidType, Deserialize)]
-pub struct PendingInvoice {
-    pub id: u128,
-    pub customer_email: Option<String>,
-    pub vehicle: Principal,
-}
 
 #[derive(CandidType, Deserialize)]
 struct Agreement {
