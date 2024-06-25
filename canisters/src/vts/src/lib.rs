@@ -194,9 +194,12 @@ struct Vehicle {
 }
 impl_storable!(Vehicle);
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Clone)]
 struct Invoice {
+    id: u128,
     vehicle: Principal,
+    period: (String, String),
+    total_cost: u64,
 }
 impl_storable!(Invoice);
 
@@ -214,6 +217,63 @@ impl_storable!(Agreement);
 #[derive(CandidType, Deserialize)]
 struct AgreementConditions {
     gas_price: String,
+}
+
+#[ic_cdk::update(guard = is_user)]
+fn create_invoice(vehicle_id: Principal, start_period: String, end_period: String) -> Result<Invoice, Error> {
+    let aggregated_data = get_aggregated_data(vehicle_id)?;
+
+    let vehicle = VEHICLES
+        .with(|vehicles| {
+            let vehicles = vehicles.borrow();
+            vehicles.get(&vehicle_id)
+        })
+        .ok_or(Error::NotFound)?;
+
+    let agreement_conditions = vehicle
+        .agreement
+        .and_then(|agreement_id| {
+            AGREEMENTS.with(|agreements| {
+                let agreements = agreements.borrow();
+                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
+            })
+        })
+        .ok_or(Error::NotFound)?;
+    let gas_price = agreement_conditions.gas_price;
+
+    let mut total_cost = 0;
+
+    if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
+        for usage in aggregated_data.daily.values() {
+            total_cost += usage * gas_price.parse::<u32>().unwrap();
+        }
+    }
+
+    let invoice_id = INVOICE_ID_COUNTER.with(|counter| {
+        let mut counter = counter.borrow_mut();
+        *counter += 1;
+        *counter
+    });
+
+    let invoice = Invoice {
+        id: invoice_id,
+        vehicle: vehicle_id,
+        period: (start_period, end_period),
+        total_cost: total_cost.into(),
+    };
+
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
+    PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
+
+    Ok(invoice)
+}
+
+#[ic_cdk::update]
+fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
+    INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
+    })
 }
 
 #[ic_cdk::init]

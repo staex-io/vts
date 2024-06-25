@@ -24,6 +24,12 @@ type Error = variant {
   AlreadyExists;
   DecodeTelemetry;
 };
+type Invoice = record {
+  id : nat;
+  period : record { text; text };
+  total_cost : nat64;
+  vehicle : principal;
+};
 type PendingInvoice = record {
   id : nat;
   vehicle : principal;
@@ -31,17 +37,18 @@ type PendingInvoice = record {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };
-type Result_2 = variant {
+type Result_10 = variant { Ok : StoreTelemetryResponse; Err : Error };
+type Result_2 = variant { Ok : Invoice; Err : Error };
+type Result_3 = variant {
   Ok : vec record { TelemetryType; AggregatedData };
   Err : Error;
 };
-type Result_3 = variant { Ok : principal; Err : Error };
-type Result_4 = variant { Ok : vec PendingInvoice; Err : Error };
-type Result_5 = variant { Ok : User; Err : Error };
-type Result_6 = variant { Ok : vec Agreement; Err : Error };
-type Result_7 = variant { Ok : Vehicle; Err : Error };
-type Result_8 = variant { Ok : vec record { principal; null }; Err : Error };
-type Result_9 = variant { Ok : StoreTelemetryResponse; Err : Error };
+type Result_4 = variant { Ok : principal; Err : Error };
+type Result_5 = variant { Ok : vec PendingInvoice; Err : Error };
+type Result_6 = variant { Ok : User; Err : Error };
+type Result_7 = variant { Ok : vec Agreement; Err : Error };
+type Result_8 = variant { Ok : Vehicle; Err : Error };
+type Result_9 = variant { Ok : vec record { principal; null }; Err : Error };
 type StoreTelemetryResponse = variant { On; Off };
 type TelemetryType = variant { Gas };
 type User = record {
@@ -71,22 +78,24 @@ service : () -> {
   add_admin : (principal) -> (Result);
   clean_state : () -> ();
   create_agreement : (text, principal, text) -> (Result_1);
+  create_invoice : (principal, text, text) -> (Result_2);
   delete_admin : (principal) -> (Result);
   delete_pending_invoices : (vec nat) -> ();
   delete_user : (principal) -> (Result);
   fill_predefined_telemetry : () -> ();
-  get_aggregated_data : (principal) -> (Result_2);
-  get_firmware_requests : () -> (Result_3) query;
+  get_aggregated_data : (principal) -> (Result_3);
+  get_firmware_requests : () -> (Result_4) query;
   get_firmware_requests_by_user : () -> (Result) query;
-  get_pending_invoices : () -> (Result_4) query;
-  get_user : () -> (Result_5) query;
-  get_user_agreements : () -> (Result_6) query;
-  get_vehicle : (principal) -> (Result_7) query;
-  get_vehicles_by_agreement : (nat) -> (Result_8) query;
+  get_invoice : (nat) -> (Result_2);
+  get_pending_invoices : () -> (Result_5) query;
+  get_user : () -> (Result_6) query;
+  get_user_agreements : () -> (Result_7) query;
+  get_vehicle : (principal) -> (Result_8) query;
+  get_vehicles_by_agreement : (nat) -> (Result_9) query;
   link_vehicle : (nat, principal) -> (Result);
   register_user : (principal, opt text) -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
-  store_telemetry : (principal, blob, blob) -> (Result_9);
+  store_telemetry : (principal, blob, blob) -> (Result_10);
   upload_firmware : (principal, blob, text, blob) -> (Result);
 }
