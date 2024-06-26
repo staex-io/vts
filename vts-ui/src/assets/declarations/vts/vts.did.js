@@ -12,13 +12,21 @@ export const idlFactory = ({ IDL }) => {
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
   const TelemetryType = IDL.Variant({ 'Gas' : IDL.Null });
-  const AccumulatedTelemetry = IDL.Record({
-    'monthly' : IDL.Vec(IDL.Tuple(IDL.Nat8, IDL.Nat)),
-    'yearly' : IDL.Vec(IDL.Tuple(IDL.Int32, IDL.Nat)),
+  const AccumulatedTelemetryMonthy = IDL.Record({
+    'value' : IDL.Nat,
     'daily' : IDL.Vec(IDL.Tuple(IDL.Nat8, IDL.Nat)),
   });
+  const AccumulatedTelemetryYearly = IDL.Record({
+    'value' : IDL.Nat,
+    'monthy' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
+  });
   const Result_2 = IDL.Variant({
-    'Ok' : IDL.Vec(IDL.Tuple(TelemetryType, AccumulatedTelemetry)),
+    'Ok' : IDL.Vec(
+      IDL.Tuple(
+        TelemetryType,
+        IDL.Vec(IDL.Tuple(IDL.Int32, AccumulatedTelemetryYearly)),
+      )
+    ),
     'Err' : Error,
   });
   const Result_3 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
@@ -74,7 +82,10 @@ export const idlFactory = ({ IDL }) => {
     'agreement' : IDL.Opt(IDL.Nat),
     'firmware' : IDL.Vec(IDL.Nat8),
     'accumulated_telemetry' : IDL.Vec(
-      IDL.Tuple(TelemetryType, AccumulatedTelemetry)
+      IDL.Tuple(
+        TelemetryType,
+        IDL.Vec(IDL.Tuple(IDL.Int32, AccumulatedTelemetryYearly)),
+      )
     ),
     'on_off' : IDL.Bool,
   });

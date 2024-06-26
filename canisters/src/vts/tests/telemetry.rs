@@ -4,7 +4,9 @@ use agent::{generate_vehicle, upload_firmware};
 use candid::{Decode, Encode, Principal};
 use ic_agent::Identity;
 use k256::ecdsa::{signature::SignerMut, Signature};
-use vts::{AccumulatedTelemetry, TelemetryType, VTSResult};
+use vts::{
+    AccumulatedTelemetry, AccumulatedTelemetryMonthy, AccumulatedTelemetryYearly, TelemetryType, VTSResult,
+};
 
 use crate::agent::{init_agent, register_user};
 
@@ -66,16 +68,24 @@ async fn test_get_aggregated_data() {
         .call()
         .await
         .unwrap();
-    let aggregated_data =
-        Decode!(response.as_slice(), VTSResult<HashMap<TelemetryType, AccumulatedTelemetry>>)
-            .unwrap()
-            .unwrap();
+    let aggregated_data = Decode!(response.as_slice(), VTSResult<AccumulatedTelemetry>).unwrap().unwrap();
 
-    let expected_aggregated_data = AccumulatedTelemetry {
-        daily: HashMap::from_iter(vec![(17, 51), (18, 40), (16, 0), (15, 86)]),
-        monthly: HashMap::from_iter(vec![(6, 1316)]),
-        yearly: HashMap::from_iter(vec![(2024, 1316)]),
-    };
+    let expected_aggregated_data = HashMap::from_iter(vec![(
+        TelemetryType::Gas,
+        HashMap::from_iter(vec![(
+            2024,
+            AccumulatedTelemetryYearly {
+                value: 1387,
+                monthy: HashMap::from_iter(vec![(
+                    6,
+                    AccumulatedTelemetryMonthy {
+                        value: 1387,
+                        daily: HashMap::from_iter(vec![(15, 182), (16, 52), (17, 1042), (18, 111)]),
+                    },
+                )]),
+            },
+        )]),
+    )]);
 
-    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap(), &expected_aggregated_data);
+    assert_eq!(aggregated_data, expected_aggregated_data);
 }
