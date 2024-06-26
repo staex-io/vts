@@ -15,7 +15,8 @@ pub enum Request {
 
 #[derive(Encode, Decode)]
 pub enum Response {
-    Ok,
+    TurnOn,
+    TurnOff,
 }
 
 #[derive(Encode, Decode)]
@@ -35,7 +36,7 @@ impl Client {
         Ok(Self { stream })
     }
 
-    pub fn store_telemetry(&mut self, data: StoreTelemetry) -> Res<()> {
+    pub fn store_telemetry(&mut self, data: StoreTelemetry) -> Res<Response> {
         let req = Request::StoreTelemetry(data);
         let mut buf = bincode::encode_to_vec(req, bincode::config::standard()).map_err(map_err)?;
         buf.push(b'\n');
@@ -44,9 +45,7 @@ impl Client {
         let mut buf = vec![0; 8];
         self.stream.read(&mut buf).map_err(map_err)?;
         let res: Response = bincode::decode_from_slice(&buf, bincode::config::standard()).map_err(map_err)?.0;
-        match res {
-            Response::Ok => Ok(()),
-        }
+        Ok(res)
     }
 }
 

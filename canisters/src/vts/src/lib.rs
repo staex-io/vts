@@ -63,18 +63,33 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
+
+    static INVOICE_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
+    static INVOICES: RefCell<StableBTreeMap<u128, Invoice, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
+    // We need to store pending invoices for gateway.
+    // Gateway proceed with pending invoice to send some notification for the user.
+    // And delete them from this structure.
+    static PENDING_INVOICES: RefCell<StableBTreeMap<u128, (), Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
-#[derive(BEncode, BDecode, Debug, PartialEq, Eq, Hash, CandidType, Deserialize, Clone, Copy)]
+type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
+
+#[derive(BEncode, BDecode, PartialEq, Eq, Hash, CandidType, Deserialize, Debug, Clone, Copy)]
 pub enum TelemetryType {
     Gas,
 }
 
-#[derive(CandidType, Deserialize, Default, Debug, PartialEq)]
+#[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
 pub enum Error {
     #[default]
     Internal,
@@ -105,24 +120,12 @@ impl From<String> for Error {
     }
 }
 
-#[derive(BEncode, BDecode)]
-pub struct TelemetryRequest {
-    pub value: u128,
-    pub t_type: TelemetryType,
-}
-
-#[derive(CandidType, Deserialize, Debug, Clone)]
-struct AccumulatedTelemetry {
-    daily: HashMap<String, u32>,
-    monthly: HashMap<String, u32>,
-    yearly: HashMap<String, u32>,
-}
-
-#[derive(CandidType, Deserialize, Debug, Clone, PartialEq)]
-pub struct AggregatedData {
-    pub yearly: HashMap<String, u32>,
-    pub monthly: HashMap<String, u32>,
-    pub daily: HashMap<String, u32>,
+#[derive(BEncode, BDecode, CandidType, Deserialize)]
+pub enum StoreTelemetryResponse {
+    // Vehicle can continue to work.
+    On,
+    // Vehicle cannot continue to work and should turned off.
+    Off,
 }
 
 #[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
@@ -132,20 +135,41 @@ enum AggregationInterval {
     Yearly,
 }
 
-#[derive(CandidType, Deserialize, Debug)]
-struct Admin {}
-impl_storable!(Admin);
-
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 enum AgreementState {
     Unsigned,
     Signed,
 }
 
+#[derive(BEncode, BDecode)]
+pub struct StoreTelemetryRequest {
+    pub value: u128,
+    pub t_type: TelemetryType,
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct PendingInvoice {
+    pub id: u128,
+    pub customer_email: Option<String>,
+    pub vehicle: Principal,
+}
+
+#[derive(CandidType, Deserialize, Default, Clone, PartialEq, Eq, Debug)]
+pub struct AccumulatedTelemetry {
+    pub daily: HashMap<u8, u128>,
+    pub monthly: HashMap<u8, u128>,
+    pub yearly: HashMap<i32, u128>,
+}
+
 #[derive(CandidType, Deserialize, Debug)]
+struct Admin {}
+impl_storable!(Admin);
+
+#[derive(CandidType, Deserialize)]
 struct User {
     vehicles: HashMap<Principal, ()>,
     agreements: HashMap<u128, ()>,
+    email: Option<String>,
 }
 impl_storable!(User);
 
@@ -156,14 +180,19 @@ struct Vehicle {
     public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
+    on_off: bool,
     telemetry: Telemetry,
-    accumulated_telemetry: AccumTelemetry,
+    accumulated_telemetry: HashMap<TelemetryType, AccumulatedTelemetry>,
 }
 impl_storable!(Vehicle);
-type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
-type AccumTelemetry = HashMap<TelemetryType, HashMap<AggregationInterval, AccumulatedTelemetry>>;
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
+struct Invoice {
+    vehicle: Principal,
+}
+impl_storable!(Invoice);
+
+#[derive(CandidType, Deserialize)]
 struct Agreement {
     name: String,
     vh_provider: Principal,
@@ -174,112 +203,60 @@ struct Agreement {
 }
 impl_storable!(Agreement);
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize)]
 struct AgreementConditions {
     gas_price: String,
 }
 
 #[ic_cdk::init]
 fn init() {
+    // Every day or 24h.
     ic_cdk_timers::set_timer_interval(std::time::Duration::from_secs(86400), || {
         let _ = accumulate_telemetry_data();
     });
 }
 
 #[ic_cdk::update]
-fn accumulate_telemetry_data_now() -> Result<(), Error> {
-    accumulate_telemetry_data()
-}
+fn accumulate_telemetry_data() -> VTSResult<()> {
+    let mut accumulated_telemetry: HashMap<Principal, HashMap<TelemetryType, AccumulatedTelemetry>> =
+        HashMap::with_capacity(VEHICLES.with(|vehicles| vehicles.borrow().len() as usize));
 
-#[ic_cdk::update]
-fn accumulate_telemetry_data() -> Result<(), Error> {
-    VEHICLES.with(|vehicles| {
-        let vehicles = vehicles.borrow_mut();
-        for (_, mut vehicle) in vehicles.iter() {
+    VEHICLES.with(|vehicles| -> VTSResult<()> {
+        let vehicles = vehicles.borrow();
+        for (principal, mut vehicle) in vehicles.iter() {
             for (telemetry_type, telemetry_data) in vehicle.telemetry.iter_mut() {
-                vehicle.accumulated_telemetry.entry(*telemetry_type).or_insert_with(HashMap::new);
+                vehicle
+                    .accumulated_telemetry
+                    .entry(*telemetry_type)
+                    .or_insert_with(AccumulatedTelemetry::default);
                 for (year, year_data) in telemetry_data.iter_mut() {
-                    vehicle
-                        .accumulated_telemetry
-                        .get_mut(&telemetry_type.clone())
-                        .unwrap()
-                        .entry(AggregationInterval::Yearly)
-                        .or_insert_with(|| AccumulatedTelemetry {
-                            daily: HashMap::new(),
-                            monthly: HashMap::new(),
-                            yearly: HashMap::new(),
-                        })
-                        .yearly
-                        .insert((*year).to_string(), 0);
                     for (month, month_data) in year_data.iter_mut() {
-                        vehicle
-                            .accumulated_telemetry
-                            .get_mut(telemetry_type)
-                            .unwrap()
-                            .entry(AggregationInterval::Monthly)
-                            .or_insert_with(|| AccumulatedTelemetry {
-                                daily: HashMap::new(),
-                                monthly: HashMap::new(),
-                                yearly: HashMap::new(),
-                            })
-                            .monthly
-                            .insert((*month).to_string(), 0);
                         for (day, day_data) in month_data.iter_mut() {
-                            vehicle
-                                .accumulated_telemetry
-                                .get_mut(telemetry_type)
-                                .unwrap()
-                                .entry(AggregationInterval::Daily)
-                                .or_insert_with(|| AccumulatedTelemetry {
-                                    daily: HashMap::new(),
-                                    monthly: HashMap::new(),
-                                    yearly: HashMap::new(),
-                                })
-                                .daily
-                                .insert((*day).to_string(), 0);
                             for value in day_data.iter() {
                                 vehicle
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
-                                    .unwrap()
-                                    .entry(AggregationInterval::Yearly)
-                                    .or_insert_with(|| AccumulatedTelemetry {
-                                        daily: HashMap::new(),
-                                        monthly: HashMap::new(),
-                                        yearly: HashMap::new(),
-                                    })
+                                    .ok_or(Error::NotFound)?
                                     .yearly
-                                    .entry((*year).to_string())
-                                    .and_modify(|v| *v += *value as u32)
-                                    .or_insert(*value as u32);
+                                    .entry(*year)
+                                    .and_modify(|v| *v += *value)
+                                    .or_insert(0);
                                 vehicle
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
-                                    .unwrap()
-                                    .entry(AggregationInterval::Monthly)
-                                    .or_insert_with(|| AccumulatedTelemetry {
-                                        daily: HashMap::new(),
-                                        monthly: HashMap::new(),
-                                        yearly: HashMap::new(),
-                                    })
+                                    .ok_or(Error::NotFound)?
                                     .monthly
-                                    .entry((*month).to_string())
-                                    .and_modify(|v| *v += *value as u32)
-                                    .or_insert(*value as u32);
+                                    .entry(*month)
+                                    .and_modify(|v| *v += *value)
+                                    .or_insert(0);
                                 vehicle
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
-                                    .unwrap()
-                                    .entry(AggregationInterval::Daily)
-                                    .or_insert_with(|| AccumulatedTelemetry {
-                                        daily: HashMap::new(),
-                                        monthly: HashMap::new(),
-                                        yearly: HashMap::new(),
-                                    })
+                                    .ok_or(Error::NotFound)?
                                     .daily
-                                    .entry((*day).to_string())
-                                    .and_modify(|v| *v += *value as u32)
-                                    .or_insert(*value as u32);
+                                    .entry(*day)
+                                    .and_modify(|v| *v += *value)
+                                    .or_insert(0);
                             }
                             day_data.clear();
                         }
@@ -288,31 +265,33 @@ fn accumulate_telemetry_data() -> Result<(), Error> {
                     year_data.clear();
                 }
             }
-            VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(vehicle.owner, vehicle));
+            accumulated_telemetry.insert(principal, vehicle.accumulated_telemetry);
+        }
+
+        Ok(())
+    })?;
+
+    VEHICLES.with(|vehicles| -> VTSResult<()> {
+        let mut vehicles = vehicles.borrow_mut();
+        for (v_principal, vat) in accumulated_telemetry {
+            let mut vehicle = vehicles.get(&v_principal).ok_or(Error::NotFound)?;
+            vehicle.accumulated_telemetry = vat;
+            vehicles.insert(v_principal, vehicle);
         }
         Ok(())
-    })
+    })?;
+
+    Ok(())
 }
 
-#[ic_cdk::update(guard = is_user)]
-fn get_aggregated_data(vehicle_id: Principal) -> Result<HashMap<TelemetryType, AggregatedData>, Error> {
+#[ic_cdk::query(guard = is_user)]
+fn get_aggregated_data(vehicle_id: Principal) -> VTSResult<HashMap<TelemetryType, AccumulatedTelemetry>> {
     VEHICLES.with(|vehicles| {
         let vehicles = vehicles.borrow();
         if let Some(vehicle) = vehicles.get(&vehicle_id) {
             let mut result = HashMap::new();
             for (telemetry_type, intervals) in &vehicle.accumulated_telemetry {
-                let aggregated_data = AggregatedData {
-                    daily: intervals
-                        .get(&AggregationInterval::Daily)
-                        .map_or(HashMap::new(), |data| data.daily.clone()),
-                    monthly: intervals
-                        .get(&AggregationInterval::Monthly)
-                        .map_or(HashMap::new(), |data| data.monthly.clone()),
-                    yearly: intervals
-                        .get(&AggregationInterval::Yearly)
-                        .map_or(HashMap::new(), |data| data.yearly.clone()),
-                };
-                result.insert(*telemetry_type, aggregated_data);
+                result.insert(*telemetry_type, intervals.clone());
             }
             Ok(result)
         } else {
@@ -353,7 +332,7 @@ fn delete_admin(admin: Principal) -> VTSResult<()> {
 }
 
 #[ic_cdk::update(guard = is_admin)]
-fn register_user(user: Principal) -> VTSResult<()> {
+fn register_user(user: Principal, email: Option<String>) -> VTSResult<()> {
     if USERS.with(|users| users.borrow().contains_key(&user)) {
         return Err(Error::AlreadyExists);
     }
@@ -364,6 +343,7 @@ fn register_user(user: Principal) -> VTSResult<()> {
             User {
                 vehicles: HashMap::new(),
                 agreements: HashMap::new(),
+                email,
             },
         );
     });
@@ -443,6 +423,7 @@ fn upload_firmware(
                 arch,
                 firmware,
                 telemetry: HashMap::new(),
+                on_off: true,
                 accumulated_telemetry: HashMap::new(),
             },
         )
@@ -492,7 +473,7 @@ fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> 
         agreements.insert(next_agreement_id, agreement);
     });
 
-    USERS.with(|users| -> Result<(), Error> {
+    USERS.with(|users| -> VTSResult<()> {
         let mut vh_provider_user = users.borrow_mut().get(&caller).ok_or(Error::NotFound)?;
         let mut vh_customer_user = users.borrow_mut().get(&vh_customer).ok_or(Error::NotFound)?;
         vh_provider_user.agreements.insert(next_agreement_id, ());
@@ -577,7 +558,7 @@ fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
     let caller = ic_cdk::api::caller();
     let user = USERS.with(|users| users.borrow().get(&caller).ok_or(Error::NotFound))?;
     let mut agreements = Vec::with_capacity(user.agreements.len());
-    AGREEMENTS.with(|agreements_storage| -> Result<(), Error> {
+    AGREEMENTS.with(|agreements_storage| -> VTSResult<()> {
         let agreements_storage = agreements_storage.borrow();
         for (user_agreement_id, _) in user.agreements {
             let agreement = agreements_storage.get(&user_agreement_id).ok_or(Error::NotFound)?;
@@ -598,18 +579,23 @@ fn get_vehicles_by_agreement(agreement_id: u128) -> VTSResult<HashMap<Principal,
 }
 
 #[ic_cdk::update]
-fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> VTSResult<()> {
+fn store_telemetry(
+    principal: Principal,
+    data: Vec<u8>,
+    signature: Vec<u8>,
+) -> VTSResult<StoreTelemetryResponse> {
     let signature = Signature::from_slice(&signature).map_err(|_| Error::InvalidSignatureFormat)?;
     let mut vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&principal).ok_or(Error::NotFound))?;
     let verifying_key =
         VerifyingKey::from_public_key_der(&vehicle.public_key).map_err(|_| Error::Internal)?;
     verifying_key.verify(&data, &signature).map_err(|_| Error::InvalidSignature)?;
-    let telemetry: TelemetryRequest = bincode::decode_from_slice(&data, bincode::config::standard())
+    let telemetry: StoreTelemetryRequest = bincode::decode_from_slice(&data, bincode::config::standard())
         .map_err(|_| Error::DecodeTelemetry)?
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
-    let timestamp = time::OffsetDateTime::from_unix_timestamp(timestamp as i64).unwrap();
+    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let on_off = vehicle.on_off;
     vehicle
         .telemetry
         .get_mut(&telemetry.t_type)
@@ -622,7 +608,47 @@ fn store_telemetry(principal: Principal, data: Vec<u8>, signature: Vec<u8>) -> V
         .get_or_insert(&mut Vec::new())
         .push(telemetry.value);
     VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(principal, vehicle));
-    Ok(())
+    if !on_off {
+        return Ok(StoreTelemetryResponse::Off);
+    }
+    Ok(StoreTelemetryResponse::On)
+}
+
+#[ic_cdk::query]
+fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
+    let pending_invoices_ids: Vec<u128> =
+        PENDING_INVOICES.with(|invoices| invoices.borrow().iter().map(|value| value.0).collect());
+    let pending_invoices: Vec<PendingInvoice> =
+        INVOICES.with(|invoices| -> VTSResult<Vec<PendingInvoice>> {
+            let mut pending_invoices: Vec<PendingInvoice> = Vec::new();
+            for pending_invoice_id in pending_invoices_ids {
+                let invoice = invoices.borrow().get(&pending_invoice_id).ok_or(Error::NotFound)?;
+                let vehicle = VEHICLES.with(|vehicles| -> VTSResult<Vehicle> {
+                    vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)
+                })?;
+                let owner: User = USERS.with(|users| -> VTSResult<User> {
+                    users.borrow().get(&vehicle.owner).ok_or(Error::NotFound)
+                })?;
+                pending_invoices.push(PendingInvoice {
+                    id: pending_invoice_id,
+                    customer_email: owner.email,
+                    vehicle: invoice.vehicle,
+                });
+            }
+            Ok(pending_invoices)
+        })?;
+    Ok(pending_invoices)
+}
+
+#[ic_cdk::update]
+fn delete_pending_invoices(ids: Vec<u128>) {
+    // todo: this canister method should be executed only by our gateway
+    INVOICES.with(|invoices| {
+        let mut invoices = invoices.borrow_mut();
+        for id in ids {
+            invoices.remove(&id);
+        }
+    });
 }
 
 // We use this method only in tests to not restart dfx node.
@@ -661,6 +687,7 @@ fn fill_predefined_telemetry() {
             User {
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
                 agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
+                email: None,
             },
         )
     });
@@ -711,21 +738,8 @@ fn fill_predefined_telemetry() {
                         )]),
                     )]),
                 )]),
-                accumulated_telemetry: HashMap::from_iter(vec![(
-                    TelemetryType::Gas,
-                    HashMap::from_iter(vec![(
-                        AggregationInterval::Daily,
-                        AccumulatedTelemetry {
-                            daily: HashMap::from_iter(vec![
-                                ("15".to_string(), 96 + 86),
-                                ("16".to_string(), 52),
-                                ("17".to_string(), 991 + 51),
-                            ]),
-                            monthly: HashMap::from_iter(vec![("06".to_string(), 3000)]),
-                            yearly: HashMap::from_iter(vec![("2024".to_string(), 36000)]),
-                        },
-                    )]),
-                )]),
+                on_off: true,
+                accumulated_telemetry: HashMap::new(),
             },
         )
     });

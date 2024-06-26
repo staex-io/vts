@@ -17,7 +17,7 @@ use tokio::{
     sync::watch,
     time::{sleep, timeout},
 };
-use vts::VTSResult;
+use vts::{PendingInvoice, StoreTelemetryResponse, VTSResult};
 use zip::write::SimpleFileOptions;
 
 const FIRMWARE_PATH: &str = "../target/debug/firmware";
@@ -65,6 +65,9 @@ async fn main() -> Res<()> {
     let state = State { agent, canister_id };
     let state_ = state.clone();
     let stop_r_ = stop_r.clone();
+    tokio::spawn(async move { wait_for_pending_invoices(state_, stop_r_).await });
+    let state_ = state.clone();
+    let stop_r_ = stop_r.clone();
     tokio::spawn(async move { wait_for_firmware_requests(state_, stop_r_).await });
     tokio::spawn(async move { start_tcp_server(state, stop_r).await });
     info!("gateway started; waiting for termination signal");
@@ -78,6 +81,23 @@ async fn main() -> Res<()> {
         }
     }
     Ok(())
+}
+
+async fn wait_for_pending_invoices(state: State, mut stop_r: watch::Receiver<()>) {
+    loop {
+        select! {
+            _ = stop_r.changed() => {
+                trace!("received stop signal, exit tcp server loop");
+                return;
+            }
+            _ = sleep(Duration::from_secs(1)) => {
+                let state_ = state.clone();
+                if let Err(e) = check_pending_invoices(state_).await {
+                    error!("failed to check pending invoices: {:?}", e)
+                }
+            }
+        }
+    }
 }
 
 async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()>) {
@@ -95,6 +115,31 @@ async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()
             }
         }
     }
+}
+
+async fn check_pending_invoices(state: State) -> Res<()> {
+    let res = state
+        .agent
+        .update(&state.canister_id, "get_pending_invoices")
+        .with_effective_canister_id(state.canister_id)
+        .with_arg(Encode!(&())?)
+        .call_and_wait()
+        .await?;
+    let pending_invoices = Decode!(res.as_slice(), VTSResult<Vec<PendingInvoice>>)??;
+    for pending_invoice in &pending_invoices {
+        if let Some(email) = &pending_invoice.customer_email {
+            eprintln!("Send a notification for the customer about new invoice: {email}")
+        }
+    }
+    let ids: Vec<u128> = pending_invoices.iter().map(|invoice| invoice.id).collect();
+    state
+        .agent
+        .update(&state.canister_id, "delete_pending_invoices")
+        .with_effective_canister_id(state.canister_id)
+        .with_arg(Encode!(&ids)?)
+        .call_and_wait()
+        .await?;
+    Ok(())
 }
 
 async fn check_firmware_requests(state: State) -> Res<()> {
@@ -263,14 +308,19 @@ async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
     match req {
         Request::StoreTelemetry(telemetry) => {
             let principal = Principal::from_slice(&telemetry.principal);
-            state
+            let res = state
                 .agent
                 .update(&state.canister_id, "store_telemetry")
                 .with_effective_canister_id(state.canister_id)
                 .with_arg(Encode!(&principal, &telemetry.telemetry, &telemetry.signature)?)
                 .call_and_wait()
                 .await?;
-            Ok(Response::Ok)
+            let res = Decode!(res.as_slice(), StoreTelemetryResponse)?;
+            let res = match res {
+                StoreTelemetryResponse::On => Response::TurnOn,
+                StoreTelemetryResponse::Off => Response::TurnOff,
+            };
+            Ok(res)
         }
     }
 }
