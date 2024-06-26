@@ -211,8 +211,20 @@ struct AgreementConditions {
     gas_price: String,
 }
 
-#[ic_cdk::update(guard = is_user)]
 fn create_invoice(vehicle_id: Principal, start_period: String, end_period: String) -> Result<Invoice, Error> {
+    let existing_invoice = INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.iter().find(|invoice| {
+            invoice.1.vehicle == vehicle_id
+                && invoice.1.period.0 == start_period
+                && invoice.1.period.1 == end_period
+        })
+    });
+
+    if existing_invoice.is_some() {
+        return Err(Error::AlreadyExists);
+    }
+
     let aggregated_data = get_aggregated_data(vehicle_id)?;
 
     let vehicle = VEHICLES
@@ -236,8 +248,8 @@ fn create_invoice(vehicle_id: Principal, start_period: String, end_period: Strin
     let mut total_cost = 0;
 
     if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
-        for usage in aggregated_data.daily.values() {
-            total_cost += usage * gas_price.parse::<u32>().unwrap();
+        for usage in aggregated_data.values().map(|v| v.value) {
+            total_cost += usage * gas_price.parse::<u128>().unwrap();
         }
     }
 
@@ -251,7 +263,7 @@ fn create_invoice(vehicle_id: Principal, start_period: String, end_period: Strin
         id: invoice_id,
         vehicle: vehicle_id,
         period: (start_period, end_period),
-        total_cost: total_cost.into(),
+        total_cost: total_cost as u64,
     };
 
     INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
