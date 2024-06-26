@@ -80,6 +80,8 @@ thread_local! {
 
 pub type VTSResult<T> = Result<T, Error>;
 
+pub type AccumulatedTelemetry = HashMap<TelemetryType, HashMap<i32, AccumulatedTelemetryYearly>>;
+
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
 type Telemetry = HashMap<TelemetryType, HashMap<i32, HashMap<u8, HashMap<u8, Vec<u128>>>>>;
@@ -120,19 +122,12 @@ impl From<String> for Error {
     }
 }
 
-#[derive(BEncode, BDecode, CandidType, Deserialize)]
+#[derive(CandidType, Deserialize)]
 pub enum StoreTelemetryResponse {
     // Vehicle can continue to work.
     On,
     // Vehicle cannot continue to work and should turned off.
     Off,
-}
-
-#[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Hash)]
-enum AggregationInterval {
-    Daily,
-    Monthly,
-    Yearly,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -154,14 +149,19 @@ pub struct PendingInvoice {
     pub vehicle: Principal,
 }
 
-#[derive(CandidType, Deserialize, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AccumulatedTelemetry {
-    pub daily: HashMap<u8, u128>,
-    pub monthly: HashMap<u8, u128>,
-    pub yearly: HashMap<i32, u128>,
+#[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
+pub struct AccumulatedTelemetryYearly {
+    pub value: u128,
+    pub monthy: HashMap<u8, AccumulatedTelemetryMonthy>,
 }
 
-#[derive(CandidType, Deserialize, Debug)]
+#[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
+pub struct AccumulatedTelemetryMonthy {
+    pub value: u128,
+    pub daily: HashMap<u8, u128>,
+}
+
+#[derive(CandidType, Deserialize)]
 struct Admin {}
 impl_storable!(Admin);
 
@@ -182,7 +182,7 @@ struct Vehicle {
     firmware: Vec<u8>,
     on_off: bool,
     telemetry: Telemetry,
-    accumulated_telemetry: HashMap<TelemetryType, AccumulatedTelemetry>,
+    accumulated_telemetry: AccumulatedTelemetry,
 }
 impl_storable!(Vehicle);
 
@@ -218,17 +218,14 @@ fn init() {
 
 #[ic_cdk::update]
 fn accumulate_telemetry_data() -> VTSResult<()> {
-    let mut accumulated_telemetry: HashMap<Principal, HashMap<TelemetryType, AccumulatedTelemetry>> =
+    let mut accumulated_telemetry: HashMap<Principal, AccumulatedTelemetry> =
         HashMap::with_capacity(VEHICLES.with(|vehicles| vehicles.borrow().len() as usize));
 
     VEHICLES.with(|vehicles| -> VTSResult<()> {
         let vehicles = vehicles.borrow();
         for (principal, mut vehicle) in vehicles.iter() {
             for (telemetry_type, telemetry_data) in vehicle.telemetry.iter_mut() {
-                vehicle
-                    .accumulated_telemetry
-                    .entry(*telemetry_type)
-                    .or_insert_with(AccumulatedTelemetry::default);
+                vehicle.accumulated_telemetry.entry(*telemetry_type).or_default();
                 for (year, year_data) in telemetry_data.iter_mut() {
                     for (month, month_data) in year_data.iter_mut() {
                         for (day, day_data) in month_data.iter_mut() {
@@ -237,26 +234,38 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
                                     .ok_or(Error::NotFound)?
-                                    .yearly
                                     .entry(*year)
-                                    .and_modify(|v| *v += *value)
-                                    .or_insert(0);
+                                    .and_modify(|v| v.value += *value)
+                                    .or_insert(AccumulatedTelemetryYearly {
+                                        value: *value,
+                                        monthy: HashMap::new(),
+                                    });
                                 vehicle
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
                                     .ok_or(Error::NotFound)?
-                                    .monthly
+                                    .get_mut(year)
+                                    .ok_or(Error::NotFound)?
+                                    .monthy
                                     .entry(*month)
-                                    .and_modify(|v| *v += *value)
-                                    .or_insert(0);
+                                    .and_modify(|v| v.value += *value)
+                                    .or_insert(AccumulatedTelemetryMonthy {
+                                        value: *value,
+                                        daily: HashMap::new(),
+                                    });
                                 vehicle
                                     .accumulated_telemetry
                                     .get_mut(telemetry_type)
                                     .ok_or(Error::NotFound)?
+                                    .get_mut(year)
+                                    .ok_or(Error::NotFound)?
+                                    .monthy
+                                    .entry(*month)
+                                    .or_default()
                                     .daily
                                     .entry(*day)
                                     .and_modify(|v| *v += *value)
-                                    .or_insert(0);
+                                    .or_insert(*value);
                             }
                             day_data.clear();
                         }
@@ -285,18 +294,11 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
 }
 
 #[ic_cdk::query(guard = is_user)]
-fn get_aggregated_data(vehicle_id: Principal) -> VTSResult<HashMap<TelemetryType, AccumulatedTelemetry>> {
+fn get_aggregated_data(vehicle_id: Principal) -> VTSResult<AccumulatedTelemetry> {
     VEHICLES.with(|vehicles| {
         let vehicles = vehicles.borrow();
-        if let Some(vehicle) = vehicles.get(&vehicle_id) {
-            let mut result = HashMap::new();
-            for (telemetry_type, intervals) in &vehicle.accumulated_telemetry {
-                result.insert(*telemetry_type, intervals.clone());
-            }
-            Ok(result)
-        } else {
-            Err(Error::NotFound)
-        }
+        let vehicle = vehicles.get(&vehicle_id).ok_or(Error::NotFound)?;
+        Ok(vehicle.accumulated_telemetry)
     })
 }
 

@@ -2,10 +2,13 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface AccumulatedTelemetry {
-  'monthly' : Array<[number, bigint]>,
-  'yearly' : Array<[number, bigint]>,
+export interface AccumulatedTelemetryMonthy {
+  'value' : bigint,
   'daily' : Array<[number, bigint]>,
+}
+export interface AccumulatedTelemetryYearly {
+  'value' : bigint,
+  'monthy' : Array<[number, AccumulatedTelemetryMonthy]>,
 }
 export interface Agreement {
   'vehicles' : Array<[Principal, null]>,
@@ -35,7 +38,9 @@ export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : Array<[TelemetryType, AccumulatedTelemetry]> } |
+export type Result_2 = {
+    'Ok' : Array<[TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]>
+  } |
   { 'Err' : Error };
 export type Result_3 = { 'Ok' : Principal } |
   { 'Err' : Error };
@@ -71,7 +76,9 @@ export interface Vehicle {
   'arch' : string,
   'agreement' : [] | [bigint],
   'firmware' : Uint8Array | number[],
-  'accumulated_telemetry' : Array<[TelemetryType, AccumulatedTelemetry]>,
+  'accumulated_telemetry' : Array<
+    [TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]
+  >,
   'on_off' : boolean,
 }
 export interface _SERVICE {
