@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use agent::{generate_vehicle, upload_firmware};
 use candid::{Decode, Encode, Principal};
 use ic_agent::Identity;
 use k256::ecdsa::{signature::SignerMut, Signature};
-use std::collections::HashMap;
-use vts::{AggregatedData, TelemetryType};
+use vts::{
+    AccumulatedTelemetry, AccumulatedTelemetryMonthy, AccumulatedTelemetryYearly, TelemetryType, VTSResult,
+};
 
 use crate::agent::{init_agent, register_user};
 
@@ -41,12 +44,23 @@ async fn test_get_aggregated_data() {
     let (agent, canister_id) = init_agent().await;
     register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
-    agent.update(&canister_id, "fill_predefined_telemetry").call_and_wait().await.unwrap();
-
     let vehicle_principal =
         Principal::from_text("zddkf-v7muw-3zj2q-kwijg-ulgjf-lpj32-t5qvx-5l3yb-rarsi-pq5w6-3ae").unwrap();
 
-    agent.update(&canister_id, "accumulate_telemetry_data_now").call_and_wait().await.unwrap();
+    agent
+        .update(&canister_id, "fill_predefined_telemetry")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&()).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
+    agent
+        .update(&canister_id, "accumulate_telemetry_data")
+        .with_effective_canister_id(canister_id)
+        .with_arg(Encode!(&()).unwrap())
+        .call_and_wait()
+        .await
+        .unwrap();
 
     let response: Vec<u8> = agent
         .query(&canister_id, "get_aggregated_data")
@@ -54,21 +68,24 @@ async fn test_get_aggregated_data() {
         .call()
         .await
         .unwrap();
-    let aggregated_data: HashMap<TelemetryType, AggregatedData> =
-        Decode!(&response, HashMap<TelemetryType, AggregatedData>).unwrap();
+    let aggregated_data = Decode!(response.as_slice(), VTSResult<AccumulatedTelemetry>).unwrap().unwrap();
 
-    let expected_aggregated_data = AggregatedData {
-        daily: vec![
-            ("15".to_string(), 182),
-            ("16".to_string(), 52),
-            ("17".to_string(), 1042),
-            ("18".to_string(), 111),
-        ]
-        .into_iter()
-        .collect(),
-        monthly: vec![("6".to_string(), 1387)].into_iter().collect(),
-        yearly: vec![("2024".to_string(), 1387)].into_iter().collect(),
-    };
+    let expected_aggregated_data = HashMap::from_iter(vec![(
+        TelemetryType::Gas,
+        HashMap::from_iter(vec![(
+            2024,
+            AccumulatedTelemetryYearly {
+                value: 1387,
+                monthy: HashMap::from_iter(vec![(
+                    6,
+                    AccumulatedTelemetryMonthy {
+                        value: 1387,
+                        daily: HashMap::from_iter(vec![(15, 182), (16, 52), (17, 1042), (18, 111)]),
+                    },
+                )]),
+            },
+        )]),
+    )]);
 
-    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap(), &expected_aggregated_data);
+    assert_eq!(aggregated_data, expected_aggregated_data);
 }

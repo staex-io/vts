@@ -19,13 +19,21 @@ export const idlFactory = ({ IDL }) => {
   });
   const Result_2 = IDL.Variant({ 'Ok' : Invoice, 'Err' : Error });
   const TelemetryType = IDL.Variant({ 'Gas' : IDL.Null });
-  const AggregatedData = IDL.Record({
-    'monthly' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat32)),
-    'yearly' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat32)),
-    'daily' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat32)),
+  const AccumulatedTelemetryMonthy = IDL.Record({
+    'value' : IDL.Nat,
+    'daily' : IDL.Vec(IDL.Tuple(IDL.Nat8, IDL.Nat)),
   });
-  const Result_3 = IDL.Variant({
-    'Ok' : IDL.Vec(IDL.Tuple(TelemetryType, AggregatedData)),
+  const AccumulatedTelemetryYearly = IDL.Record({
+    'value' : IDL.Nat,
+    'monthy' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
+  });
+  const Result_2 = IDL.Variant({
+    'Ok' : IDL.Vec(
+      IDL.Tuple(
+        TelemetryType,
+        IDL.Vec(IDL.Tuple(IDL.Int32, AccumulatedTelemetryYearly)),
+      )
+    ),
     'Err' : Error,
   });
   const Result_4 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
@@ -57,12 +65,7 @@ export const idlFactory = ({ IDL }) => {
     'vh_provider' : IDL.Principal,
     'vh_customer' : IDL.Principal,
   });
-  const Result_7 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
-  const AggregationInterval = IDL.Variant({
-    'Daily' : IDL.Null,
-    'Monthly' : IDL.Null,
-    'Yearly' : IDL.Null,
-  });
+  const Result_6 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
   const Vehicle = IDL.Record({
     'telemetry' : IDL.Vec(
       IDL.Tuple(
@@ -88,7 +91,7 @@ export const idlFactory = ({ IDL }) => {
     'accumulated_telemetry' : IDL.Vec(
       IDL.Tuple(
         TelemetryType,
-        IDL.Vec(IDL.Tuple(AggregationInterval, AggregatedData)),
+        IDL.Vec(IDL.Tuple(IDL.Int32, AccumulatedTelemetryYearly)),
       )
     ),
     'on_off' : IDL.Bool,
@@ -108,7 +111,6 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'accumulate_telemetry_data' : IDL.Func([], [Result], []),
-    'accumulate_telemetry_data_now' : IDL.Func([], [Result], []),
     'add_admin' : IDL.Func([IDL.Principal], [Result], []),
     'clean_state' : IDL.Func([], [], []),
     'create_agreement' : IDL.Func(
@@ -125,8 +127,8 @@ export const idlFactory = ({ IDL }) => {
     'delete_pending_invoices' : IDL.Func([IDL.Vec(IDL.Nat)], [], []),
     'delete_user' : IDL.Func([IDL.Principal], [Result], []),
     'fill_predefined_telemetry' : IDL.Func([], [], []),
-    'get_aggregated_data' : IDL.Func([IDL.Principal], [Result_3], []),
-    'get_firmware_requests' : IDL.Func([], [Result_4], ['query']),
+    'get_aggregated_data' : IDL.Func([IDL.Principal], [Result_2], ['query']),
+    'get_firmware_requests' : IDL.Func([], [Result_3], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result], ['query']),
     'get_invoice' : IDL.Func([IDL.Nat], [Result_2], []),
     'get_pending_invoices' : IDL.Func([], [Result_5], ['query']),

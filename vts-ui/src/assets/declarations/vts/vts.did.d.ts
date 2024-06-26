@@ -2,14 +2,14 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface AggregatedData {
-  'monthly' : Array<[string, number]>,
-  'yearly' : Array<[string, number]>,
-  'daily' : Array<[string, number]>,
+export interface AccumulatedTelemetryMonthy {
+  'value' : bigint,
+  'daily' : Array<[number, bigint]>,
 }
-export type AggregationInterval = { 'Daily' : null } |
-  { 'Monthly' : null } |
-  { 'Yearly' : null };
+export interface AccumulatedTelemetryYearly {
+  'value' : bigint,
+  'monthy' : Array<[number, AccumulatedTelemetryMonthy]>,
+}
 export interface Agreement {
   'vehicles' : Array<[Principal, null]>,
   'name' : string,
@@ -44,7 +44,9 @@ export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
-export type Result_10 = { 'Ok' : StoreTelemetryResponse } |
+export type Result_2 = {
+    'Ok' : Array<[TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]>
+  } |
   { 'Err' : Error };
 export type Result_2 = { 'Ok' : Invoice } |
   { 'Err' : Error };
@@ -83,13 +85,12 @@ export interface Vehicle {
   'agreement' : [] | [bigint],
   'firmware' : Uint8Array | number[],
   'accumulated_telemetry' : Array<
-    [TelemetryType, Array<[AggregationInterval, AggregatedData]>]
+    [TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]
   >,
   'on_off' : boolean,
 }
 export interface _SERVICE {
   'accumulate_telemetry_data' : ActorMethod<[], Result>,
-  'accumulate_telemetry_data_now' : ActorMethod<[], Result>,
   'add_admin' : ActorMethod<[Principal], Result>,
   'clean_state' : ActorMethod<[], undefined>,
   'create_agreement' : ActorMethod<[string, Principal, string], Result_1>,
