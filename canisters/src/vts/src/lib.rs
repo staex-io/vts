@@ -10,6 +10,8 @@ use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use k256::pkcs8::DecodePublicKey;
+use rust_decimal::prelude::*;
+use rust_decimal::Decimal;
 use time::{Month, OffsetDateTime};
 
 macro_rules! impl_storable {
@@ -103,6 +105,7 @@ pub enum Error {
     InvalidSignature,
     InvalidSignatureFormat,
     DecodeTelemetry,
+    InvalidData,
 }
 
 impl Display for Error {
@@ -212,7 +215,12 @@ struct AgreementConditions {
     gas_price: String,
 }
 
-fn create_invoice(vehicle_id: Principal, start_period: String, end_period: String) -> Result<Invoice, Error> {
+fn create_invoice(
+    vehicle_id: Principal,
+    start_period: String,
+    end_period: String,
+    aggregated_data: &AccumulatedTelemetry,
+) -> VTSResult<()> {
     let existing_invoice = INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
         invoices.iter().any(|invoice| {
@@ -223,10 +231,8 @@ fn create_invoice(vehicle_id: Principal, start_period: String, end_period: Strin
     });
 
     if existing_invoice {
-        return Err(Error::AlreadyExists);
+        return Ok(());
     }
-
-    let aggregated_data = get_aggregated_data(vehicle_id)?;
 
     let vehicle = VEHICLES
         .with(|vehicles| {
@@ -244,13 +250,14 @@ fn create_invoice(vehicle_id: Principal, start_period: String, end_period: Strin
             })
         })
         .ok_or(Error::NotFound)?;
-    let gas_price = agreement_conditions.gas_price;
 
-    let mut total_cost = 0;
+    let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
+
+    let mut total_cost = Decimal::new(0, 0);
 
     if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
-        for usage in aggregated_data.values().map(|v| v.value) {
-            total_cost += usage * gas_price.parse::<u128>().unwrap();
+        for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
+            total_cost += usage * gas_price;
         }
     }
 
@@ -264,13 +271,13 @@ fn create_invoice(vehicle_id: Principal, start_period: String, end_period: Strin
         id: invoice_id,
         vehicle: vehicle_id,
         period: (start_period, end_period),
-        total_cost: total_cost as u64,
+        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
     };
 
     INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
     PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
 
-    Ok(invoice)
+    Ok(())
 }
 
 #[ic_cdk::update]
