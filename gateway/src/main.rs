@@ -87,7 +87,7 @@ async fn wait_for_pending_invoices(state: State, mut stop_r: watch::Receiver<()>
     loop {
         select! {
             _ = stop_r.changed() => {
-                trace!("received stop signal, exit tcp server loop");
+                trace!("received stop signal, exit waiting for pending invoices loop");
                 return;
             }
             _ = sleep(Duration::from_secs(1)) => {
@@ -104,7 +104,7 @@ async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()
     loop {
         select! {
             _ = stop_r.changed() => {
-                trace!("received stop signal, exit tcp server loop");
+                trace!("received stop signal, exit waiting for firmware requests loop");
                 return;
             }
             _ = sleep(Duration::from_secs(1)) => {
@@ -118,13 +118,17 @@ async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()
 }
 
 async fn check_pending_invoices(state: State) -> Res<()> {
-    let res = state
-        .agent
-        .update(&state.canister_id, "get_pending_invoices")
-        .with_effective_canister_id(state.canister_id)
-        .with_arg(Encode!(&())?)
-        .call_and_wait()
-        .await?;
+    trace!("starting to check for pending invoices");
+    let res = tokio::time::timeout(
+        Duration::from_secs(5),
+        state
+            .agent
+            .update(&state.canister_id, "get_pending_invoices")
+            .with_effective_canister_id(state.canister_id)
+            .with_arg(Encode!(&())?)
+            .call_and_wait(),
+    )
+    .await??;
     let pending_invoices = Decode!(res.as_slice(), VTSResult<Vec<PendingInvoice>>)??;
     for pending_invoice in &pending_invoices {
         if let Some(email) = &pending_invoice.customer_email {
@@ -139,10 +143,12 @@ async fn check_pending_invoices(state: State) -> Res<()> {
         .with_arg(Encode!(&ids)?)
         .call_and_wait()
         .await?;
+    trace!("finished to check for pending invoices");
     Ok(())
 }
 
 async fn check_firmware_requests(state: State) -> Res<()> {
+    trace!("starting to check for firmware requests");
     let vh_customer = match get_firmware_request(&state.agent, state.canister_id).await? {
         Some(principal) => principal,
         None => {
@@ -196,12 +202,15 @@ async fn init_agent() -> Res<(Agent, Principal)> {
 }
 
 async fn get_firmware_request(agent: &Agent, canister_id: Principal) -> Res<Option<Principal>> {
-    let res = agent
-        .update(&canister_id, "get_firmware_requests")
-        .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&())?)
-        .call_and_wait()
-        .await?;
+    let res = tokio::time::timeout(
+        Duration::from_secs(5),
+        agent
+            .update(&canister_id, "get_firmware_requests")
+            .with_effective_canister_id(canister_id)
+            .with_arg(Encode!(&())?)
+            .call_and_wait(),
+    )
+    .await??;
     let res = Decode!(res.as_slice(), VTSResult<Principal>)?;
     match res {
         Ok(principal) => Ok(Some(principal)),

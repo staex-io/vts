@@ -39,7 +39,7 @@ thread_local! {
 
     static ADMINS: RefCell<StableBTreeMap<Principal, Admin, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
     );
 
     static USERS: RefCell<StableBTreeMap<Principal, User, Memory>> = RefCell::new(
@@ -51,30 +51,30 @@ thread_local! {
     static AGREEMENT_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
     static AGREEMENTS: RefCell<StableBTreeMap<u128, Agreement, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
 
     static FIRMWARE_REQUESTS: RefCell<StableBTreeMap<Principal, (), Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
 
     static VEHICLES: RefCell<StableBTreeMap<Principal, Vehicle, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))))
     );
 
     static INVOICE_ID_COUNTER: RefCell<u128> = const { RefCell::new(0) };
     static INVOICES: RefCell<StableBTreeMap<u128, Invoice, Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))))
     );
     // We need to store pending invoices for gateway.
     // Gateway proceed with pending invoice to send some notification for the user.
     // And delete them from this structure.
     static PENDING_INVOICES: RefCell<StableBTreeMap<u128, (), Memory>> = RefCell::new(
         StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))))
     );
 }
 
@@ -212,12 +212,16 @@ struct AgreementConditions {
 fn init() {
     // Every day or 24h.
     ic_cdk_timers::set_timer_interval(std::time::Duration::from_secs(86400), || {
-        let _ = accumulate_telemetry_data();
+        if let Err(e) = accumulate_telemetry_data() {
+            ic_cdk::println!("failed to accumulate telemetry data: {}", e)
+        }
     });
 }
 
 #[ic_cdk::update]
 fn accumulate_telemetry_data() -> VTSResult<()> {
+    ic_cdk::println!("starting to accumulate telemetry data");
+
     let mut accumulated_telemetry: HashMap<Principal, AccumulatedTelemetry> =
         HashMap::with_capacity(VEHICLES.with(|vehicles| vehicles.borrow().len() as usize));
 
@@ -290,6 +294,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         Ok(())
     })?;
 
+    ic_cdk::println!("accumulating telemetry data is finished");
     Ok(())
 }
 
@@ -618,8 +623,20 @@ fn store_telemetry(
 
 #[ic_cdk::query]
 fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    let pending_invoices_ids: Vec<u128> =
-        PENDING_INVOICES.with(|invoices| invoices.borrow().iter().map(|value| value.0).collect());
+    ic_cdk::println!("get_pending_invoices requests");
+    let is_no_pending_invoices = PENDING_INVOICES.with(|invoices| invoices.borrow().is_empty());
+    if is_no_pending_invoices {
+        ic_cdk::println!("there are no pending invoices");
+        return Ok(vec![]);
+    }
+    let mut pending_invoices_ids: Vec<u128> = Vec::new();
+    PENDING_INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        for invoice in invoices.iter() {
+            pending_invoices_ids.push(invoice.0);
+        }
+    });
+    ic_cdk::println!("there are {} pending invoices", pending_invoices_ids.len());
     let pending_invoices: Vec<PendingInvoice> =
         INVOICES.with(|invoices| -> VTSResult<Vec<PendingInvoice>> {
             let mut pending_invoices: Vec<PendingInvoice> = Vec::new();
