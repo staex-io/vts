@@ -404,7 +404,9 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         VEHICLES.with(|vehicles| -> VTSResult<()> {
             let vehicles = vehicles.borrow();
             for (vehicle_id, _) in vehicles.iter() {
-                let _ = create_invoice(vehicle_id, start_period.clone(), end_period.clone());
+                let aggregated_data = get_aggregated_data(vehicle_id)?;
+                let _ =
+                    create_invoice(vehicle_id, start_period.clone(), end_period.clone(), &aggregated_data);
             }
             Ok(())
         })?;
