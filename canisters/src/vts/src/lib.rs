@@ -10,6 +10,7 @@ use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use k256::pkcs8::DecodePublicKey;
+use time::{Month, OffsetDateTime};
 
 macro_rules! impl_storable {
     ($struct_name:ident) => {
@@ -214,14 +215,14 @@ struct AgreementConditions {
 fn create_invoice(vehicle_id: Principal, start_period: String, end_period: String) -> Result<Invoice, Error> {
     let existing_invoice = INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
-        invoices.iter().find(|invoice| {
+        invoices.iter().any(|invoice| {
             invoice.1.vehicle == vehicle_id
                 && invoice.1.period.0 == start_period
                 && invoice.1.period.1 == end_period
         })
     });
 
-    if existing_invoice.is_some() {
+    if existing_invoice {
         return Err(Error::AlreadyExists);
     }
 
@@ -361,6 +362,46 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         }
         Ok(())
     })?;
+
+    // Check if it's the first day of the month
+    let timestamp = ic_cdk::api::time();
+    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    if timestamp.day() == 1 {
+        let (previous_year, previous_month) = if timestamp.month() == Month::January {
+            (timestamp.year() - 1, Month::December)
+        } else {
+            (timestamp.year(), timestamp.month().previous())
+        };
+
+        let start_period = format!("{}-{:02}-01", previous_year, previous_month as u8);
+        let end_period = format!(
+            "{}-{:02}-{}",
+            previous_year,
+            previous_month as u8,
+            match previous_month {
+                Month::January
+                | Month::March
+                | Month::May
+                | Month::July
+                | Month::August
+                | Month::October
+                | Month::December => 31,
+                Month::April | Month::June | Month::September | Month::November => 30,
+                Month::February
+                    if (previous_year % 4 == 0 && previous_year % 100 != 0) || (previous_year % 400 == 0) =>
+                    29,
+                Month::February => 28,
+            }
+        );
+
+        VEHICLES.with(|vehicles| -> VTSResult<()> {
+            let vehicles = vehicles.borrow();
+            for (vehicle_id, _) in vehicles.iter() {
+                let _ = create_invoice(vehicle_id, start_period.clone(), end_period.clone());
+            }
+            Ok(())
+        })?;
+    }
 
     Ok(())
 }
@@ -668,7 +709,7 @@ fn store_telemetry(
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
-    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
     let on_off = vehicle.on_off;
     vehicle
         .telemetry
