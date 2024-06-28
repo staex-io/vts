@@ -229,7 +229,6 @@ fn create_invoice(
                 && invoice.1.period.1 == end_period
         })
     });
-
     if existing_invoice {
         return Ok(());
     }
@@ -250,11 +249,9 @@ fn create_invoice(
             })
         })
         .ok_or(Error::NotFound)?;
-
     let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
 
     let mut total_cost = Decimal::new(0, 0);
-
     if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
         for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
             total_cost += usage * gas_price;
@@ -266,7 +263,6 @@ fn create_invoice(
         *counter += 1;
         *counter
     });
-
     let invoice = Invoice {
         id: invoice_id,
         vehicle: vehicle_id,
@@ -374,7 +370,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         Ok(())
     })?;
 
-    // Check if it's the first day of the month
+    // Check if it's the first day of the month.
     let timestamp = ic_cdk::api::time();
     let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
     if timestamp.day() == 1 {
@@ -383,7 +379,6 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         } else {
             (timestamp.year(), timestamp.month().previous())
         };
-
         let start_period = format!("{}-{:02}-01", previous_year, previous_month as u8);
         let end_period = format!(
             "{}-{:02}-{}",
@@ -408,12 +403,12 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         VEHICLES.with(|vehicles| -> VTSResult<()> {
             let vehicles = vehicles.borrow();
             for (vehicle_id, _) in vehicles.iter() {
-                let _ = create_invoice(
+                create_invoice(
                     vehicle_id,
                     start_period.clone(),
                     end_period.clone(),
                     &get_aggregated_data(vehicle_id)?,
-                );
+                )?;
             }
             Ok(())
         })?;
