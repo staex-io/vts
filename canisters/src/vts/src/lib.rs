@@ -274,7 +274,7 @@ fn create_invoice(
         total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
     };
 
-    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
     PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
 
     Ok(())
