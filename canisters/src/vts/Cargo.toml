@@ -20,6 +20,7 @@ ic-cdk = { version = "0.14.0", features = [], default-features = false }
 ic-stable-structures = { version = "0.6.5", features = [], default-features = false }
 time = { version = "0.3.36", features = [], default-features = false }
 ic-cdk-timers = { version = "0.8.0", features = [], default-features = false }
+rust_decimal = { version = "1.35", features = [], default-features = false }
 
 [dev-dependencies]
 ic-agent = { workspace = true }
