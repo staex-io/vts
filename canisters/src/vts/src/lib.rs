@@ -10,6 +10,9 @@ use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use k256::pkcs8::DecodePublicKey;
+use rust_decimal::prelude::*;
+use rust_decimal::Decimal;
+use time::{Month, OffsetDateTime};
 
 macro_rules! impl_storable {
     ($struct_name:ident) => {
@@ -102,6 +105,7 @@ pub enum Error {
     InvalidSignature,
     InvalidSignatureFormat,
     DecodeTelemetry,
+    InvalidData,
 }
 
 impl Display for Error {
@@ -186,9 +190,12 @@ struct Vehicle {
 }
 impl_storable!(Vehicle);
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Clone)]
 struct Invoice {
+    id: u128,
     vehicle: Principal,
+    period: (String, String),
+    total_cost: u64,
 }
 impl_storable!(Invoice);
 
@@ -206,6 +213,79 @@ impl_storable!(Agreement);
 #[derive(CandidType, Deserialize)]
 struct AgreementConditions {
     gas_price: String,
+}
+
+fn create_invoice(
+    vehicle_id: Principal,
+    start_period: String,
+    end_period: String,
+    aggregated_data: &AccumulatedTelemetry,
+) -> VTSResult<()> {
+    let existing_invoice = INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.iter().any(|invoice| {
+            invoice.1.vehicle == vehicle_id
+                && invoice.1.period.0 == start_period
+                && invoice.1.period.1 == end_period
+        })
+    });
+
+    if existing_invoice {
+        return Ok(());
+    }
+
+    let vehicle = VEHICLES
+        .with(|vehicles| {
+            let vehicles = vehicles.borrow();
+            vehicles.get(&vehicle_id)
+        })
+        .ok_or(Error::NotFound)?;
+
+    let agreement_conditions = vehicle
+        .agreement
+        .and_then(|agreement_id| {
+            AGREEMENTS.with(|agreements| {
+                let agreements = agreements.borrow();
+                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
+            })
+        })
+        .ok_or(Error::NotFound)?;
+
+    let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
+
+    let mut total_cost = Decimal::new(0, 0);
+
+    if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
+        for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
+            total_cost += usage * gas_price;
+        }
+    }
+
+    let invoice_id = INVOICE_ID_COUNTER.with(|counter| {
+        let mut counter = counter.borrow_mut();
+        *counter += 1;
+        *counter
+    });
+
+    let invoice = Invoice {
+        id: invoice_id,
+        vehicle: vehicle_id,
+        period: (start_period, end_period),
+        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
+    };
+
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
+    PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
+
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
+    INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
+    })
 }
 
 #[ic_cdk::init]
@@ -293,6 +373,51 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         }
         Ok(())
     })?;
+
+    // Check if it's the first day of the month
+    let timestamp = ic_cdk::api::time();
+    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    if timestamp.day() == 1 {
+        let (previous_year, previous_month) = if timestamp.month() == Month::January {
+            (timestamp.year() - 1, Month::December)
+        } else {
+            (timestamp.year(), timestamp.month().previous())
+        };
+
+        let start_period = format!("{}-{:02}-01", previous_year, previous_month as u8);
+        let end_period = format!(
+            "{}-{:02}-{}",
+            previous_year,
+            previous_month as u8,
+            match previous_month {
+                Month::January
+                | Month::March
+                | Month::May
+                | Month::July
+                | Month::August
+                | Month::October
+                | Month::December => 31,
+                Month::April | Month::June | Month::September | Month::November => 30,
+                Month::February
+                    if (previous_year % 4 == 0 && previous_year % 100 != 0) || (previous_year % 400 == 0) =>
+                    29,
+                Month::February => 28,
+            }
+        );
+
+        VEHICLES.with(|vehicles| -> VTSResult<()> {
+            let vehicles = vehicles.borrow();
+            for (vehicle_id, _) in vehicles.iter() {
+                let _ = create_invoice(
+                    vehicle_id,
+                    start_period.clone(),
+                    end_period.clone(),
+                    &get_aggregated_data(vehicle_id)?,
+                );
+            }
+            Ok(())
+        })?;
+    }
 
     ic_cdk::println!("accumulating telemetry data is finished");
     Ok(())
@@ -601,7 +726,7 @@ fn store_telemetry(
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
-    let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
     let on_off = vehicle.on_off;
     vehicle
         .telemetry

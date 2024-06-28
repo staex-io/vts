@@ -29,6 +29,12 @@ export type Error = { 'InvalidSigner' : null } |
   { 'Unauthorized' : null } |
   { 'AlreadyExists' : null } |
   { 'DecodeTelemetry' : null };
+export interface Invoice {
+  'id' : bigint,
+  'period' : [string, string],
+  'total_cost' : bigint,
+  'vehicle' : Principal,
+}
 export interface PendingInvoice {
   'id' : bigint,
   'vehicle' : Principal,
@@ -42,19 +48,21 @@ export type Result_2 = {
     'Ok' : Array<[TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]>
   } |
   { 'Err' : Error };
-export type Result_3 = { 'Ok' : Principal } |
+export type Result_2 = { 'Ok' : Invoice } |
   { 'Err' : Error };
-export type Result_4 = { 'Ok' : Array<PendingInvoice> } |
+export type Result_3 = { 'Ok' : Array<[TelemetryType, AggregatedData]> } |
   { 'Err' : Error };
-export type Result_5 = { 'Ok' : User } |
+export type Result_4 = { 'Ok' : Principal } |
   { 'Err' : Error };
-export type Result_6 = { 'Ok' : Array<Agreement> } |
+export type Result_5 = { 'Ok' : Array<PendingInvoice> } |
   { 'Err' : Error };
-export type Result_7 = { 'Ok' : Vehicle } |
+export type Result_6 = { 'Ok' : User } |
   { 'Err' : Error };
-export type Result_8 = { 'Ok' : Array<[Principal, null]> } |
+export type Result_7 = { 'Ok' : Array<Agreement> } |
   { 'Err' : Error };
-export type Result_9 = { 'Ok' : StoreTelemetryResponse } |
+export type Result_8 = { 'Ok' : Vehicle } |
+  { 'Err' : Error };
+export type Result_9 = { 'Ok' : Array<[Principal, null]> } |
   { 'Err' : Error };
 export type StoreTelemetryResponse = { 'On' : null } |
   { 'Off' : null };
@@ -86,25 +94,27 @@ export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
   'clean_state' : ActorMethod<[], undefined>,
   'create_agreement' : ActorMethod<[string, Principal, string], Result_1>,
+  'create_invoice' : ActorMethod<[Principal, string, string], Result_2>,
   'delete_admin' : ActorMethod<[Principal], Result>,
   'delete_pending_invoices' : ActorMethod<[Array<bigint>], undefined>,
   'delete_user' : ActorMethod<[Principal], Result>,
   'fill_predefined_telemetry' : ActorMethod<[], undefined>,
-  'get_aggregated_data' : ActorMethod<[Principal], Result_2>,
-  'get_firmware_requests' : ActorMethod<[], Result_3>,
+  'get_aggregated_data' : ActorMethod<[Principal], Result_3>,
+  'get_firmware_requests' : ActorMethod<[], Result_4>,
   'get_firmware_requests_by_user' : ActorMethod<[], Result>,
-  'get_pending_invoices' : ActorMethod<[], Result_4>,
-  'get_user' : ActorMethod<[], Result_5>,
-  'get_user_agreements' : ActorMethod<[], Result_6>,
-  'get_vehicle' : ActorMethod<[Principal], Result_7>,
-  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_8>,
+  'get_invoice' : ActorMethod<[bigint], Result_2>,
+  'get_pending_invoices' : ActorMethod<[], Result_5>,
+  'get_user' : ActorMethod<[], Result_6>,
+  'get_user_agreements' : ActorMethod<[], Result_7>,
+  'get_vehicle' : ActorMethod<[Principal], Result_8>,
+  'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_9>,
   'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
   'register_user' : ActorMethod<[Principal, [] | [string]], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,
   'store_telemetry' : ActorMethod<
     [Principal, Uint8Array | number[], Uint8Array | number[]],
-    Result_9
+    Result_10
   >,
   'upload_firmware' : ActorMethod<
     [Principal, Uint8Array | number[], string, Uint8Array | number[]],
