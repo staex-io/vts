@@ -740,14 +740,7 @@ fn clean_state() {
 // To make pre-fill with some data for testing purposes.
 #[cfg(feature = "predefined_telemetry")]
 #[ic_cdk::update]
-fn fill_predefined_telemetry() {
-    let vh_provider: Principal =
-        Principal::from_text("s76co-mfsqq-uqz5p-jfdh2-z3izx-tnpp7-r5vwe-up6yj-va7ks-5s22x-eqe").unwrap();
-    let vh_customer: Principal =
-        Principal::from_text("xnufg-sj4kb-rjjc3-73zhk-3msse-3cqb7-qcfgt-kq5lq-s3w5v-mctsx-bae").unwrap();
-    let vehicle: Principal =
-        Principal::from_text("zddkf-v7muw-3zj2q-kwijg-ulgjf-lpj32-t5qvx-5l3yb-rarsi-pq5w6-3ae").unwrap();
-
+fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle: Principal) {
     const AGREEMENT_ID: u128 = 1;
 
     // Initialize admin.

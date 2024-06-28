@@ -50,7 +50,7 @@ async fn test_get_aggregated_data() {
     agent
         .update(&canister_id, "fill_predefined_telemetry")
         .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&()).unwrap())
+        .with_arg(Encode!(&Principal::anonymous(), &Principal::anonymous(), &vehicle_principal).unwrap())
         .call_and_wait()
         .await
         .unwrap();

@@ -5,19 +5,13 @@ export const idlFactory = ({ IDL }) => {
     'InvalidSignatureFormat' : IDL.Null,
     'InvalidSignature' : IDL.Null,
     'NotFound' : IDL.Null,
+    'InvalidData' : IDL.Null,
     'Unauthorized' : IDL.Null,
     'AlreadyExists' : IDL.Null,
     'DecodeTelemetry' : IDL.Null,
   });
   const Result = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : Error });
   const Result_1 = IDL.Variant({ 'Ok' : IDL.Nat, 'Err' : Error });
-  const Invoice = IDL.Record({
-    'id' : IDL.Nat,
-    'period' : IDL.Tuple(IDL.Text, IDL.Text),
-    'total_cost' : IDL.Nat64,
-    'vehicle' : IDL.Principal,
-  });
-  const Result_2 = IDL.Variant({ 'Ok' : Invoice, 'Err' : Error });
   const TelemetryType = IDL.Variant({ 'Gas' : IDL.Null });
   const AccumulatedTelemetryMonthy = IDL.Record({
     'value' : IDL.Nat,
@@ -36,7 +30,14 @@ export const idlFactory = ({ IDL }) => {
     ),
     'Err' : Error,
   });
-  const Result_4 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
+  const Result_3 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
+  const Invoice = IDL.Record({
+    'id' : IDL.Nat,
+    'period' : IDL.Tuple(IDL.Text, IDL.Text),
+    'total_cost' : IDL.Nat64,
+    'vehicle' : IDL.Principal,
+  });
+  const Result_4 = IDL.Variant({ 'Ok' : Invoice, 'Err' : Error });
   const PendingInvoice = IDL.Record({
     'id' : IDL.Nat,
     'vehicle' : IDL.Principal,
@@ -65,7 +66,7 @@ export const idlFactory = ({ IDL }) => {
     'vh_provider' : IDL.Principal,
     'vh_customer' : IDL.Principal,
   });
-  const Result_6 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
+  const Result_7 = IDL.Variant({ 'Ok' : IDL.Vec(Agreement), 'Err' : Error });
   const Vehicle = IDL.Record({
     'telemetry' : IDL.Vec(
       IDL.Tuple(
@@ -118,19 +119,20 @@ export const idlFactory = ({ IDL }) => {
         [Result_1],
         [],
       ),
-    'create_invoice' : IDL.Func(
-        [IDL.Principal, IDL.Text, IDL.Text],
-        [Result_2],
-        [],
-      ),
     'delete_admin' : IDL.Func([IDL.Principal], [Result], []),
+    'delete_paid_invoices' : IDL.Func([IDL.Vec(IDL.Nat)], [], []),
     'delete_pending_invoices' : IDL.Func([IDL.Vec(IDL.Nat)], [], []),
     'delete_user' : IDL.Func([IDL.Principal], [Result], []),
-    'fill_predefined_telemetry' : IDL.Func([], [], []),
+    'fill_predefined_telemetry' : IDL.Func(
+        [IDL.Principal, IDL.Principal, IDL.Principal],
+        [],
+        [],
+      ),
     'get_aggregated_data' : IDL.Func([IDL.Principal], [Result_2], ['query']),
     'get_firmware_requests' : IDL.Func([], [Result_3], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result], ['query']),
-    'get_invoice' : IDL.Func([IDL.Nat], [Result_2], []),
+    'get_invoice' : IDL.Func([IDL.Nat], [Result_4], []),
+    'get_paid_invoices' : IDL.Func([], [Result_5], ['query']),
     'get_pending_invoices' : IDL.Func([], [Result_5], ['query']),
     'get_user' : IDL.Func([], [Result_6], ['query']),
     'get_user_agreements' : IDL.Func([], [Result_7], ['query']),
