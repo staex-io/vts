@@ -79,6 +79,11 @@ thread_local! {
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))))
     );
+    // Same as PENDING_INVOIES.
+    static PAID_INVOICES: RefCell<StableBTreeMap<u128, (), Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(8))))
+    );
 }
 
 pub type VTSResult<T> = Result<T, Error>;
@@ -213,67 +218,6 @@ impl_storable!(Agreement);
 #[derive(CandidType, Deserialize)]
 struct AgreementConditions {
     gas_price: String,
-}
-
-fn create_invoice(
-    vehicle_id: Principal,
-    start_period: String,
-    end_period: String,
-    aggregated_data: &AccumulatedTelemetry,
-) -> VTSResult<()> {
-    let existing_invoice = INVOICES.with(|invoices| {
-        let invoices = invoices.borrow();
-        invoices.iter().any(|invoice| {
-            invoice.1.vehicle == vehicle_id
-                && invoice.1.period.0 == start_period
-                && invoice.1.period.1 == end_period
-        })
-    });
-    if existing_invoice {
-        return Ok(());
-    }
-
-    let vehicle = VEHICLES
-        .with(|vehicles| {
-            let vehicles = vehicles.borrow();
-            vehicles.get(&vehicle_id)
-        })
-        .ok_or(Error::NotFound)?;
-
-    let agreement_conditions = vehicle
-        .agreement
-        .and_then(|agreement_id| {
-            AGREEMENTS.with(|agreements| {
-                let agreements = agreements.borrow();
-                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
-            })
-        })
-        .ok_or(Error::NotFound)?;
-    let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
-
-    let mut total_cost = Decimal::new(0, 0);
-    if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
-        for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
-            total_cost += usage * gas_price;
-        }
-    }
-
-    let invoice_id = INVOICE_ID_COUNTER.with(|counter| {
-        let mut counter = counter.borrow_mut();
-        *counter += 1;
-        *counter
-    });
-    let invoice = Invoice {
-        id: invoice_id,
-        vehicle: vehicle_id,
-        period: (start_period, end_period),
-        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
-    };
-
-    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
-    PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
-
-    Ok(())
 }
 
 #[ic_cdk::update]
@@ -743,46 +687,35 @@ fn store_telemetry(
 
 #[ic_cdk::query]
 fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    ic_cdk::println!("get_pending_invoices requests");
-    let is_no_pending_invoices = PENDING_INVOICES.with(|invoices| invoices.borrow().is_empty());
-    if is_no_pending_invoices {
-        ic_cdk::println!("there are no pending invoices");
-        return Ok(vec![]);
-    }
-    let mut pending_invoices_ids: Vec<u128> = Vec::new();
-    PENDING_INVOICES.with(|invoices| {
-        let invoices = invoices.borrow();
-        for invoice in invoices.iter() {
-            pending_invoices_ids.push(invoice.0);
+    ic_cdk::println!("get pending invoices requests");
+    let pending_invoices = PENDING_INVOICES
+        .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
+    Ok(pending_invoices)
+}
+
+#[ic_cdk::query]
+fn get_paid_invoices() -> VTSResult<Vec<PendingInvoice>> {
+    ic_cdk::println!("get paid invoices requests");
+    let pending_invoices = PAID_INVOICES
+        .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
+    Ok(pending_invoices)
+}
+
+#[ic_cdk::update]
+fn delete_paid_invoices(ids: Vec<u128>) {
+    // todo: this canister method should be executed only by our gateway
+    PAID_INVOICES.with(|invoices| {
+        let mut invoices = invoices.borrow_mut();
+        for id in ids {
+            invoices.remove(&id);
         }
     });
-    ic_cdk::println!("there are {} pending invoices", pending_invoices_ids.len());
-    let pending_invoices: Vec<PendingInvoice> =
-        INVOICES.with(|invoices| -> VTSResult<Vec<PendingInvoice>> {
-            let mut pending_invoices: Vec<PendingInvoice> = Vec::new();
-            for pending_invoice_id in pending_invoices_ids {
-                let invoice = invoices.borrow().get(&pending_invoice_id).ok_or(Error::NotFound)?;
-                let vehicle = VEHICLES.with(|vehicles| -> VTSResult<Vehicle> {
-                    vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)
-                })?;
-                let owner: User = USERS.with(|users| -> VTSResult<User> {
-                    users.borrow().get(&vehicle.owner).ok_or(Error::NotFound)
-                })?;
-                pending_invoices.push(PendingInvoice {
-                    id: pending_invoice_id,
-                    customer_email: owner.email,
-                    vehicle: invoice.vehicle,
-                });
-            }
-            Ok(pending_invoices)
-        })?;
-    Ok(pending_invoices)
 }
 
 #[ic_cdk::update]
 fn delete_pending_invoices(ids: Vec<u128>) {
     // todo: this canister method should be executed only by our gateway
-    INVOICES.with(|invoices| {
+    PENDING_INVOICES.with(|invoices| {
         let mut invoices = invoices.borrow_mut();
         for id in ids {
             invoices.remove(&id);
@@ -882,6 +815,103 @@ fn fill_predefined_telemetry() {
             },
         )
     });
+}
+
+fn create_invoice(
+    vehicle_id: Principal,
+    start_period: String,
+    end_period: String,
+    aggregated_data: &AccumulatedTelemetry,
+) -> VTSResult<()> {
+    let existing_invoice = INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.iter().any(|invoice| {
+            invoice.1.vehicle == vehicle_id
+                && invoice.1.period.0 == start_period
+                && invoice.1.period.1 == end_period
+        })
+    });
+    if existing_invoice {
+        return Ok(());
+    }
+
+    let vehicle = VEHICLES
+        .with(|vehicles| {
+            let vehicles = vehicles.borrow();
+            vehicles.get(&vehicle_id)
+        })
+        .ok_or(Error::NotFound)?;
+
+    let agreement_conditions = vehicle
+        .agreement
+        .and_then(|agreement_id| {
+            AGREEMENTS.with(|agreements| {
+                let agreements = agreements.borrow();
+                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
+            })
+        })
+        .ok_or(Error::NotFound)?;
+    let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
+
+    let mut total_cost = Decimal::new(0, 0);
+    if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
+        for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
+            total_cost += usage * gas_price;
+        }
+    }
+
+    let invoice_id = INVOICE_ID_COUNTER.with(|counter| {
+        let mut counter = counter.borrow_mut();
+        *counter += 1;
+        *counter
+    });
+    let invoice = Invoice {
+        id: invoice_id,
+        vehicle: vehicle_id,
+        period: (start_period, end_period),
+        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
+    };
+
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
+    PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
+
+    Ok(())
+}
+
+fn prepare_pending_invoices(
+    storage: &RefCell<StableBTreeMap<u128, (), Memory>>,
+) -> VTSResult<Vec<PendingInvoice>> {
+    let is_no_pending_invoices = storage.borrow().is_empty();
+    if is_no_pending_invoices {
+        ic_cdk::println!("there are no pending invoices");
+        return Ok(vec![]);
+    }
+    let mut pending_invoices_ids: Vec<u128> = Vec::new();
+    let invoices = storage.borrow();
+    for invoice in invoices.iter() {
+        pending_invoices_ids.push(invoice.0);
+    }
+    ic_cdk::println!("there are {} pending invoices", pending_invoices_ids.len());
+    let pending_invoices: Vec<PendingInvoice> =
+        INVOICES.with(|invoices| -> VTSResult<Vec<PendingInvoice>> {
+            let mut pending_invoices: Vec<PendingInvoice> = Vec::new();
+            for pending_invoice_id in pending_invoices_ids {
+                let invoice = invoices.borrow().get(&pending_invoice_id).ok_or(Error::NotFound)?;
+                let vehicle = VEHICLES.with(|vehicles| -> VTSResult<Vehicle> {
+                    vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)
+                })?;
+                let owner: User = USERS.with(|users| -> VTSResult<User> {
+                    users.borrow().get(&vehicle.owner).ok_or(Error::NotFound)
+                })?;
+                pending_invoices.push(PendingInvoice {
+                    id: pending_invoice_id,
+                    customer_email: owner.email,
+                    vehicle: invoice.vehicle,
+                });
+            }
+            Ok(pending_invoices)
+        })?;
+    Ok(pending_invoices)
 }
 
 fn is_admin() -> Result<(), String> {

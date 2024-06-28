@@ -65,6 +65,9 @@ async fn main() -> Res<()> {
     let state = State { agent, canister_id };
     let state_ = state.clone();
     let stop_r_ = stop_r.clone();
+    tokio::spawn(async move { wait_for_paid_invoices(state_, stop_r_).await });
+    let state_ = state.clone();
+    let stop_r_ = stop_r.clone();
     tokio::spawn(async move { wait_for_pending_invoices(state_, stop_r_).await });
     let state_ = state.clone();
     let stop_r_ = stop_r.clone();
@@ -83,6 +86,23 @@ async fn main() -> Res<()> {
     Ok(())
 }
 
+async fn wait_for_paid_invoices(state: State, mut stop_r: watch::Receiver<()>) {
+    loop {
+        select! {
+            _ = stop_r.changed() => {
+                trace!("received stop signal, exit waiting for paid invoices loop");
+                return;
+            }
+            _ = sleep(Duration::from_secs(1)) => {
+                let state_ = state.clone();
+                if let Err(e) = check_paid_invoices(state_).await {
+                    error!("failed to check for paid invoices: {:?}", e)
+                }
+            }
+        }
+    }
+}
+
 async fn wait_for_pending_invoices(state: State, mut stop_r: watch::Receiver<()>) {
     loop {
         select! {
@@ -93,7 +113,7 @@ async fn wait_for_pending_invoices(state: State, mut stop_r: watch::Receiver<()>
             _ = sleep(Duration::from_secs(1)) => {
                 let state_ = state.clone();
                 if let Err(e) = check_pending_invoices(state_).await {
-                    error!("failed to check pending invoices: {:?}", e)
+                    error!("failed to check for pending invoices: {:?}", e)
                 }
             }
         }
@@ -110,20 +130,33 @@ async fn wait_for_firmware_requests(state: State, mut stop_r: watch::Receiver<()
             _ = sleep(Duration::from_secs(1)) => {
                 let state_ = state.clone();
                 if let Err(e) = check_firmware_requests(state_).await {
-                    error!("failed to check firmware requests: {:?}", e)
+                    error!("failed to check for firmware requests: {:?}", e)
                 }
             }
         }
     }
 }
 
+async fn check_paid_invoices(state: State) -> Res<()> {
+    process_pending_invoices(&state, "get_paid_invoices", "delete_paid_invoices", "paid").await
+}
+
 async fn check_pending_invoices(state: State) -> Res<()> {
-    trace!("starting to check for pending invoices");
+    process_pending_invoices(&state, "get_pending_invoices", "delete_pending_invoices", "pending").await
+}
+
+async fn process_pending_invoices(
+    state: &State,
+    get_method: &str,
+    delete_method: &str,
+    log_prefix: &str,
+) -> Res<()> {
+    trace!("starting to check for {log_prefix} invoices",);
     let res = tokio::time::timeout(
         Duration::from_secs(5),
         state
             .agent
-            .update(&state.canister_id, "get_pending_invoices")
+            .update(&state.canister_id, get_method)
             .with_effective_canister_id(state.canister_id)
             .with_arg(Encode!(&())?)
             .call_and_wait(),
@@ -132,18 +165,18 @@ async fn check_pending_invoices(state: State) -> Res<()> {
     let pending_invoices = Decode!(res.as_slice(), VTSResult<Vec<PendingInvoice>>)??;
     for pending_invoice in &pending_invoices {
         if let Some(email) = &pending_invoice.customer_email {
-            eprintln!("Send a notification for the customer about new invoice: {email}")
+            eprintln!("Send a notification for the customer about {log_prefix} invoice: {email}")
         }
     }
     let ids: Vec<u128> = pending_invoices.iter().map(|invoice| invoice.id).collect();
     state
         .agent
-        .update(&state.canister_id, "delete_pending_invoices")
+        .update(&state.canister_id, delete_method)
         .with_effective_canister_id(state.canister_id)
         .with_arg(Encode!(&ids)?)
         .call_and_wait()
         .await?;
-    trace!("finished to check for pending invoices");
+    trace!("finished to check for {log_prefix} invoices");
     Ok(())
 }
 
