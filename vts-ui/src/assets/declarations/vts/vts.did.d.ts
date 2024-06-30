@@ -26,6 +26,7 @@ export type Error = { 'InvalidSigner' : null } |
   { 'InvalidSignatureFormat' : null } |
   { 'InvalidSignature' : null } |
   { 'NotFound' : null } |
+  { 'InvalidData' : null } |
   { 'Unauthorized' : null } |
   { 'AlreadyExists' : null } |
   { 'DecodeTelemetry' : null };
@@ -44,15 +45,15 @@ export type Result = { 'Ok' : null } |
   { 'Err' : Error };
 export type Result_1 = { 'Ok' : bigint } |
   { 'Err' : Error };
+export type Result_10 = { 'Ok' : StoreTelemetryResponse } |
+  { 'Err' : Error };
 export type Result_2 = {
     'Ok' : Array<[TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]>
   } |
   { 'Err' : Error };
-export type Result_2 = { 'Ok' : Invoice } |
+export type Result_3 = { 'Ok' : Principal } |
   { 'Err' : Error };
-export type Result_3 = { 'Ok' : Array<[TelemetryType, AggregatedData]> } |
-  { 'Err' : Error };
-export type Result_4 = { 'Ok' : Principal } |
+export type Result_4 = { 'Ok' : Invoice } |
   { 'Err' : Error };
 export type Result_5 = { 'Ok' : Array<PendingInvoice> } |
   { 'Err' : Error };
@@ -94,15 +95,19 @@ export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Result>,
   'clean_state' : ActorMethod<[], undefined>,
   'create_agreement' : ActorMethod<[string, Principal, string], Result_1>,
-  'create_invoice' : ActorMethod<[Principal, string, string], Result_2>,
   'delete_admin' : ActorMethod<[Principal], Result>,
+  'delete_paid_invoices' : ActorMethod<[Array<bigint>], undefined>,
   'delete_pending_invoices' : ActorMethod<[Array<bigint>], undefined>,
   'delete_user' : ActorMethod<[Principal], Result>,
-  'fill_predefined_telemetry' : ActorMethod<[], undefined>,
-  'get_aggregated_data' : ActorMethod<[Principal], Result_3>,
-  'get_firmware_requests' : ActorMethod<[], Result_4>,
+  'fill_predefined_telemetry' : ActorMethod<
+    [Principal, Principal, Principal],
+    undefined
+  >,
+  'get_aggregated_data' : ActorMethod<[Principal], Result_2>,
+  'get_firmware_requests' : ActorMethod<[], Result_3>,
   'get_firmware_requests_by_user' : ActorMethod<[], Result>,
-  'get_invoice' : ActorMethod<[bigint], Result_2>,
+  'get_invoice' : ActorMethod<[bigint], Result_4>,
+  'get_paid_invoices' : ActorMethod<[], Result_5>,
   'get_pending_invoices' : ActorMethod<[], Result_5>,
   'get_user' : ActorMethod<[], Result_6>,
   'get_user_agreements' : ActorMethod<[], Result_7>,

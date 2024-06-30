@@ -1,6 +1,7 @@
 <script>
 import router from '@/router'
 import { initVTSClient } from '@/icp'
+import { Principal } from '@dfinity/principal'
 import { AgreementFirmwaresRouteName, VehicleLinkRouteName } from '@/constants'
 
 export default {
@@ -46,6 +47,9 @@ export default {
     this.fetchUserLoader = false
   },
   methods: {
+    publicKeyToPrincipal(publicKey) {
+      return Principal.selfAuthenticating(publicKey)
+    },
     async prepareVehicles(vtsClient, rawVehicles) {
       for (let i = 0; i < rawVehicles.length; i++) {
         const vehicle = (await vtsClient.get_vehicle(rawVehicles[i][0])).Ok
@@ -152,11 +156,14 @@ export default {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="{ agreement, identity, arch, firmware } in vehicles" :key="identity">
-            <td>{{ identity.toString() }}</td>
+          <tr v-for="{ agreement, publicKey, arch, firmware } in vehicles" :key="publicKey">
+            <td>{{ publicKeyToPrincipal(publicKey) }}</td>
             <td>{{ arch }}</td>
             <td style="text-align: right">
-              <button class="action-btn" @click="() => downloadFirmware(identity, arch, firmware)">
+              <button
+                class="action-btn"
+                @click="() => downloadFirmware(publicKeyToPrincipal(publicKey), arch, firmware)"
+              >
                 Download
               </button>
             </td>
@@ -164,7 +171,7 @@ export default {
               <button
                 v-if="agreement.length === 0"
                 class="action-btn"
-                @click="() => linkFirmware(identity)"
+                @click="() => linkFirmware(publicKeyToPrincipal(publicKey))"
               >
                 Link
               </button>

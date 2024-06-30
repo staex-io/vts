@@ -11,12 +11,15 @@ start:
 	dfx start --clean --host 127.0.0.1:7777
 
 pre_install:
-	dfx canister create internet_identity
+	dfx canister create --specified-id rdmx6-jaaaa-aaaaa-aaadq-cai internet_identity
+	dfx canister create --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai icp_ledger_canister
 	dfx build internet_identity
-	dfx canister create vts
+	dfx build icp_ledger_canister
+	dfx canister create --specified-id bkyz2-fmaaa-aaaaa-qaaaq-cai vts
 
 install: pre_install update_candid update_declarations
 	dfx canister install --async-call -y internet_identity
+	../../install_icp_ledger_canister.sh
 	dfx canister install --async-call -y vts --wasm ../../../target/wasm32-unknown-unknown/release/vts.wasm
 
 update_candid:

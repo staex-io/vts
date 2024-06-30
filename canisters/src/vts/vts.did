@@ -22,6 +22,7 @@ type Error = variant {
   InvalidSignatureFormat;
   InvalidSignature;
   NotFound;
+  InvalidData;
   Unauthorized;
   AlreadyExists;
   DecodeTelemetry;
@@ -39,6 +40,7 @@ type PendingInvoice = record {
 };
 type Result = variant { Ok; Err : Error };
 type Result_1 = variant { Ok : nat; Err : Error };
+type Result_10 = variant { Ok : StoreTelemetryResponse; Err : Error };
 type Result_2 = variant {
   Ok : vec record {
     TelemetryType;
@@ -46,7 +48,8 @@ type Result_2 = variant {
   };
   Err : Error;
 };
-type Result_4 = variant { Ok : principal; Err : Error };
+type Result_3 = variant { Ok : principal; Err : Error };
+type Result_4 = variant { Ok : Invoice; Err : Error };
 type Result_5 = variant { Ok : vec PendingInvoice; Err : Error };
 type Result_6 = variant { Ok : User; Err : Error };
 type Result_7 = variant { Ok : vec Agreement; Err : Error };
@@ -80,15 +83,16 @@ service : () -> {
   add_admin : (principal) -> (Result);
   clean_state : () -> ();
   create_agreement : (text, principal, text) -> (Result_1);
-  create_invoice : (principal, text, text) -> (Result_2);
   delete_admin : (principal) -> (Result);
+  delete_paid_invoices : (vec nat) -> ();
   delete_pending_invoices : (vec nat) -> ();
   delete_user : (principal) -> (Result);
-  fill_predefined_telemetry : () -> ();
+  fill_predefined_telemetry : (principal, principal, principal) -> ();
   get_aggregated_data : (principal) -> (Result_2) query;
   get_firmware_requests : () -> (Result_3) query;
   get_firmware_requests_by_user : () -> (Result) query;
-  get_invoice : (nat) -> (Result_2);
+  get_invoice : (nat) -> (Result_4);
+  get_paid_invoices : () -> (Result_5) query;
   get_pending_invoices : () -> (Result_5) query;
   get_user : () -> (Result_6) query;
   get_user_agreements : () -> (Result_7) query;
