@@ -609,6 +609,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "gateway-tcp",
+ "hex",
  "ic-agent",
  "k256",
  "rand",
@@ -2345,6 +2346,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "candid",
+ "hex",
  "ic-agent",
  "ic-cdk",
  "ic-cdk-timers",

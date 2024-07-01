@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import { initAuthClient } from '@/icp'
+import { initAuthClient, initVTSClient } from '@/icp'
 import { ICPLedgerClient, principalToAccountId } from '@/icp_ledger'
 </script>
 <script>
@@ -11,21 +11,30 @@ export default {
       authClient: null,
       principal: '',
       balance: 0,
+      email: '<email>',
     }
   },
   async beforeMount() {
     router.push({ path: window.location.pathname })
     await this.initAuthClient()
-    const icpLedgerClient = await ICPLedgerClient(this.authClient)
-    const accountId = principalToAccountId(this.principal)
-    const rawBalance = await icpLedgerClient.accountBalance({
-      accountIdentifier: accountId.toHex(),
-      certified: false,
-    })
-    const balance = Number(rawBalance) / 100000000
-    this.balance = balance
+    Promise.all([this.getBalance(), this.getUser()])
   },
   methods: {
+    async getBalance() {
+      const icpLedgerClient = await ICPLedgerClient(this.authClient)
+      const accountId = principalToAccountId(this.principal)
+      const rawBalance = await icpLedgerClient.accountBalance({
+        accountIdentifier: accountId.toHex(),
+        certified: false,
+      })
+      const balance = Number(rawBalance) / 100000000
+      this.balance = balance
+    },
+    async getUser() {
+      const vtsClient = await initVTSClient()
+      const user = await vtsClient.get_user()
+      if (user.Ok.email.length !== 0) this.email = user.Ok.email[0]
+    },
     async initAuthClient() {
       this.authClient = await initAuthClient()
       this.principal = this.authClient.getIdentity().getPrincipal().toText()
@@ -57,7 +66,10 @@ export default {
         <li class="mouse-pointer" @click="logout">
           <!-- We need tag <a> to make it style like other menu entities. -->
           <a style="padding-right: 0">
-            Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }})&nbsp;({{ balance }} ICP)
+            Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }}) &nbsp;({{
+              balance
+            }}
+            ICP) &nbsp;({{ email }})
           </a>
         </li>
         <li class="mouse-pointer" style="margin-left: 0" @click="copyIdentity">

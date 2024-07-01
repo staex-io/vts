@@ -26,6 +26,23 @@ body {
   padding: 0 25px;
 }
 
+.centered-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.centered-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+}
+
 h1 {
   text-align: center;
   color: var(--staex-pacific-blue);
@@ -207,4 +224,52 @@ thead tr {
   100% {
     transform: rotate(360deg);
   }
+}
+
+.card {
+  background-color: var(--staex-white);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin: 20px 0;
+  transition:
+    transform 0.3s ease-in-out,
+    box-shadow 0.3s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.card-header {
+  background-color: var(--staex-pacific-blue);
+  color: var(--staex-white);
+  padding: 15px 20px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.card-content {
+  padding: 20px;
+  color: var(--staex-dark-pacific-blue);
+}
+
+.card-field {
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.card-field:last-child {
+  margin-bottom: 0;
+}
+
+.card-field-label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.card-field-value {
+  color: var(--staex-medium-pacific-blue);
 }

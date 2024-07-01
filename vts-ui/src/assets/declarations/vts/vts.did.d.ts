@@ -100,7 +100,7 @@ export interface _SERVICE {
   'delete_pending_invoices' : ActorMethod<[Array<bigint>], undefined>,
   'delete_user' : ActorMethod<[Principal], Result>,
   'fill_predefined_telemetry' : ActorMethod<
-    [Principal, Principal, Principal],
+    [Principal, Principal, string],
     undefined
   >,
   'get_aggregated_data' : ActorMethod<[Principal], Result_2>,

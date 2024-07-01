@@ -11,7 +11,6 @@ export default {
 
       name: '',
       vh_customer: '',
-      daily_usage_fee: 0,
       gas_price: 0,
 
       errorText: '',
@@ -28,7 +27,6 @@ export default {
       const res = await vtsClient.create_agreement(
         this.name,
         vh_customer,
-        this.daily_usage_fee.toString(),
         this.gas_price.toString(),
       )
       if (res.Ok !== undefined) {
@@ -54,9 +52,6 @@ export default {
 
     <label for="vh_customer">Vehicle customer</label>
     <input id="vh_customer" v-model="vh_customer" type="text" name="vh_customer" />
-
-    <label for="daily_usage_fee">Daily usage fee</label>
-    <input id="daily_usage_fee" v-model="daily_usage_fee" type="number" name="daily_usage_fee" />
 
     <label for="gas_price">Gas price</label>
     <input id="gas_price" v-model="gas_price" type="number" name="gas_price" />
