@@ -37,6 +37,14 @@ dfx canister call vts add_admin '(principal "")'
 dfx canister call vts register_user '(principal "", opt "")'
 ```
 
+### Predefined temeletry
+
+In order to use predefined telemetry data use folloding command:
+
+```shell
+dfx canister call vts fill_predefined_telemetry '(principal "<vehicle provider principal>", principal "<vehicle customer principal>", "<vehicle public key in hex>")'
+```
+
 ## ICP ledger canister
 
 We need this canister to use ICP tokens and transfer them between users to pay for invoices.

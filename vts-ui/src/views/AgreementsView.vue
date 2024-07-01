@@ -127,7 +127,6 @@ export default {
           <tr>
             <th>Name</th>
             <th>Entity</th>
-            <th>Daily usage fee</th>
             <th>Gas price</th>
             <th />
             <th v-if="vehicleToLink" />
@@ -146,7 +145,6 @@ export default {
                 ownPrincipal !== vh_provider.toText() ? vh_provider.toText() : vh_customer.toText()
               }}
             </td>
-            <td>{{ conditions.daily_usage_fee }}</td>
             <td>{{ conditions.gas_price }}</td>
             <td>
               <button

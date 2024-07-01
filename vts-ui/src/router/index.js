@@ -7,11 +7,13 @@ import {
   AgreementsRouteName,
   VehicleLinkRouteName,
   CreateAgreementRouteName,
+  VehicleRouteName,
 } from '@/constants'
 
 import FirmwaresView from '@/views/FirmwaresView.vue'
 import AgreementsView from '@/views/AgreementsView.vue'
 import CreateAgreementView from '@/views/CreateAgreementView.vue'
+import VehicleView from '@/views/VehicleView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -45,6 +47,11 @@ const router = createRouter({
       path: '/agreements/create',
       name: CreateAgreementRouteName,
       component: CreateAgreementView,
+    },
+    {
+      path: '/vehicles/:vehicle',
+      name: VehicleRouteName,
+      component: VehicleView,
     },
   ],
 })

@@ -740,8 +740,10 @@ fn clean_state() {
 // To make pre-fill with some data for testing purposes.
 #[cfg(feature = "predefined_telemetry")]
 #[ic_cdk::update]
-fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle: Principal) {
+fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
     const AGREEMENT_ID: u128 = 1;
+    let vehicle_public_key = hex::decode(vehicle_public_key_hex).unwrap();
+    let vehicle = Principal::self_authenticating(&vehicle_public_key);
 
     // Initialize admin.
     ADMINS.with(|admins| admins.borrow_mut().insert(vh_provider, Admin {}));
@@ -752,7 +754,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
             User {
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
                 agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
-                email: None,
+                email: Some(String::from("unknown@staex.io")),
             },
         )
     });
@@ -785,7 +787,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
             Vehicle {
                 owner: vh_customer,
                 agreement: Some(AGREEMENT_ID),
-                public_key: Vec::new(),
+                public_key: vehicle_public_key,
                 arch: String::from("amd64"),
                 firmware: Vec::new(),
                 telemetry: HashMap::from_iter(vec![(

@@ -124,7 +124,7 @@ export const idlFactory = ({ IDL }) => {
     'delete_pending_invoices' : IDL.Func([IDL.Vec(IDL.Nat)], [], []),
     'delete_user' : IDL.Func([IDL.Principal], [Result], []),
     'fill_predefined_telemetry' : IDL.Func(
-        [IDL.Principal, IDL.Principal, IDL.Principal],
+        [IDL.Principal, IDL.Principal, IDL.Text],
         [],
         [],
       ),
