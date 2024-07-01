@@ -793,15 +793,10 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                 telemetry: HashMap::from_iter(vec![(
                     TelemetryType::Gas,
                     HashMap::from_iter(vec![(
-                        2024,
+                        2023,
                         HashMap::from_iter(vec![(
                             time::Month::June as u8,
-                            HashMap::from_iter(vec![
-                                (15, vec![96, 86]),
-                                (16, vec![52]),
-                                (17, vec![991, 51]),
-                                (18, vec![71, 23, 17]),
-                            ]),
+                            HashMap::from_iter(vec![(15, vec![96])]),
                         )]),
                     )]),
                 )]),
@@ -812,11 +807,11 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         (
                             2023,
                             AccumulatedTelemetryYearly {
-                                value: 2551,
+                                value: 265,
                                 monthly: HashMap::from_iter(vec![(
                                     7,
                                     AccumulatedTelemetryMonthy {
-                                        value: 2551,
+                                        value: 265,
                                         daily: HashMap::from_iter(vec![
                                             (1, 21),
                                             (2, 91),
@@ -831,12 +826,12 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         (
                             2024,
                             AccumulatedTelemetryYearly {
-                                value: 8892,
+                                value: 640,
                                 monthly: HashMap::from_iter(vec![
                                     (
                                         6,
                                         AccumulatedTelemetryMonthy {
-                                            value: 2244,
+                                            value: 294,
                                             daily: HashMap::from_iter(vec![
                                                 (2, 52),
                                                 (5, 79),
@@ -849,7 +844,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                                     (
                                         7,
                                         AccumulatedTelemetryMonthy {
-                                            value: 6612,
+                                            value: 346,
                                             daily: HashMap::from_iter(vec![
                                                 (1, 67),
                                                 (2, 99),

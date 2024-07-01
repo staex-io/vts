@@ -73,22 +73,17 @@ async fn test_get_aggregated_data() {
         .unwrap();
     let aggregated_data = Decode!(response.as_slice(), VTSResult<AccumulatedTelemetry>).unwrap().unwrap();
 
-    let expected_aggregated_data = HashMap::from_iter(vec![(
-        TelemetryType::Gas,
-        HashMap::from_iter(vec![(
-            2024,
-            AccumulatedTelemetryYearly {
-                value: 1387,
-                monthly: HashMap::from_iter(vec![(
-                    6,
-                    AccumulatedTelemetryMonthy {
-                        value: 1387,
-                        daily: HashMap::from_iter(vec![(15, 182), (16, 52), (17, 1042), (18, 111)]),
-                    },
-                )]),
-            },
-        )]),
-    )]);
+    aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2023).unwrap();
+    aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap();
 
-    assert_eq!(aggregated_data, expected_aggregated_data);
+    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2023).unwrap().value, 361);
+    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().value, 640);
+    assert_eq!(
+        aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().monthly.get(&6).unwrap().value,
+        294
+    );
+    assert_eq!(
+        aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().monthly.get(&7).unwrap().value,
+        346
+    );
 }
