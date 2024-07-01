@@ -11,6 +11,7 @@ export interface AccumulatedTelemetryYearly {
   'monthly' : Array<[number, AccumulatedTelemetryMonthy]>,
 }
 export interface Agreement {
+  'id' : bigint,
   'vehicles' : Array<[Principal, null]>,
   'name' : string,
   'state' : AgreementState,

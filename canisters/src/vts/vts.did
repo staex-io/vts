@@ -7,6 +7,7 @@ type AccumulatedTelemetryYearly = record {
   monthly : vec record { nat8; AccumulatedTelemetryMonthy };
 };
 type Agreement = record {
+  id : nat;
   vehicles : vec record { principal; null };
   name : text;
   state : AgreementState;

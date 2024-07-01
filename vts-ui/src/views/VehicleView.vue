@@ -1,7 +1,9 @@
 <script>
+import router from '@/router'
 import { initVTSClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
 import { downloadFirmware } from '@/download_firmware'
+import { VehicleLinkRouteName } from '@/constants'
 import Chart from 'chart.js/auto'
 
 export default {
@@ -12,6 +14,8 @@ export default {
   },
   watch: {
     vehicle(vehicle) {
+      if (vehicle.accumulated_telemetry.length === 0) return
+
       const accT = vehicle.accumulated_telemetry
 
       const yearly = accT[0][1].sort((a, b) => {
@@ -98,6 +102,14 @@ export default {
     this.vehicle = res.Ok
   },
   methods: {
+    linkFirmware() {
+      router.push({
+        name: VehicleLinkRouteName,
+        params: {
+          vehicle: this.publicKeyToPrincipal(this.vehicle.public_key),
+        },
+      })
+    },
     monthIndexToName(month) {
       const names = [
         'January',
@@ -148,7 +160,14 @@ export default {
           <div class="card-field">
             <span class="card-field-label">Agreement</span>
             <span class="card-field-value">
-              <button class="action-btn" @click="goToAgreement">Check</button>
+              <button
+                v-if="vehicle.agreement.length !== 0"
+                class="action-btn"
+                @click="goToAgreement"
+              >
+                Check
+              </button>
+              <button v-else class="action-btn" @click="linkFirmware">Link</button>
             </span>
           </div>
           <div class="card-field">
@@ -173,8 +192,17 @@ export default {
   <div class="centered-container">
     <div class="centered-item">
       <div style="width: 80%">
+        <h2 v-if="vehicle !== null && vehicle.accumulated_telemetry.length !== 0">
+          Usage per year
+        </h2>
         <canvas id="chart-year" />
+        <h2 v-if="vehicle !== null && vehicle.accumulated_telemetry.length !== 0">
+          Last year usage
+        </h2>
         <canvas id="chart-month" />
+        <h2 v-if="vehicle !== null && vehicle.accumulated_telemetry.length !== 0">
+          Last month usage
+        </h2>
         <canvas id="chart-day" />
       </div>
     </div>

@@ -206,6 +206,7 @@ impl_storable!(Invoice);
 
 #[derive(CandidType, Deserialize)]
 struct Agreement {
+    id: u128, // we need to store it here to be able to use it on frontend
     name: String,
     vh_provider: Principal,
     vh_customer: Principal,
@@ -530,6 +531,7 @@ fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> 
 
     AGREEMENTS.with(|agreements| {
         let agreement = Agreement {
+            id: next_agreement_id,
             name,
             vh_provider: caller,
             vh_customer,
@@ -738,33 +740,42 @@ fn clean_state() {
 
 // We use this method only in tests to not restart dfx node.
 // To make pre-fill with some data for testing purposes.
-#[cfg(feature = "predefined_telemetry")]
+// #[cfg(feature = "predefined_telemetry")]
 #[ic_cdk::update]
 fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
-    const AGREEMENT_ID: u128 = 1;
+    const SIGNED_AGREEMENT_ID: u128 = 1;
+    const UNSIGNED_AGREEMENT_ID: u128 = 2;
+
     let vehicle_public_key = hex::decode(vehicle_public_key_hex).unwrap();
     let vehicle = Principal::self_authenticating(&vehicle_public_key);
 
-    // Initialize admin.
-    ADMINS.with(|admins| admins.borrow_mut().insert(vh_provider, Admin {}));
-    // Add customer to users storage.
+    // Add provider and customer to users storage.
     USERS.with(|users| {
+        users.borrow_mut().insert(
+            vh_provider,
+            User {
+                vehicles: HashMap::new(),
+                agreements: HashMap::from_iter(vec![(SIGNED_AGREEMENT_ID, ()), (UNSIGNED_AGREEMENT_ID, ())]),
+                email: Some(String::from("provider@staex.io")),
+            },
+        );
         users.borrow_mut().insert(
             vh_customer,
             User {
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
-                agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
-                email: Some(String::from("unknown@staex.io")),
+                agreements: HashMap::from_iter(vec![(SIGNED_AGREEMENT_ID, ()), (UNSIGNED_AGREEMENT_ID, ())]),
+                email: Some(String::from("customer@staex.io")),
             },
-        )
+        );
     });
 
     // Initialize agreement.
     AGREEMENTS.with(|agreements| {
         agreements.borrow_mut().insert(
-            AGREEMENT_ID,
+            SIGNED_AGREEMENT_ID,
             Agreement {
-                name: String::from("Test Agreement"),
+                id: SIGNED_AGREEMENT_ID,
+                name: String::from("Solar Energy GmbH"),
                 vh_provider,
                 vh_customer,
                 state: AgreementState::Signed,
@@ -773,9 +784,23 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                 },
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
             },
-        )
+        );
+        agreements.borrow_mut().insert(
+            UNSIGNED_AGREEMENT_ID,
+            Agreement {
+                id: UNSIGNED_AGREEMENT_ID,
+                name: String::from("Super Duper Vehicles inc."),
+                vh_provider,
+                vh_customer,
+                state: AgreementState::Unsigned,
+                conditions: AgreementConditions {
+                    gas_price: String::from("4.71"),
+                },
+                vehicles: HashMap::new(),
+            },
+        );
     });
-    AGREEMENT_ID_COUNTER.set(AGREEMENT_ID + 1);
+    AGREEMENT_ID_COUNTER.set(UNSIGNED_AGREEMENT_ID);
 
     // Add one pending firmware request.
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().insert(vh_customer, ()));
@@ -786,7 +811,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
             vehicle,
             Vehicle {
                 owner: vh_customer,
-                agreement: Some(AGREEMENT_ID),
+                agreement: Some(SIGNED_AGREEMENT_ID),
                 public_key: vehicle_public_key,
                 arch: String::from("amd64"),
                 firmware: Vec::new(),

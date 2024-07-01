@@ -59,6 +59,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const AgreementConditions = IDL.Record({ 'gas_price' : IDL.Text });
   const Agreement = IDL.Record({
+    'id' : IDL.Nat,
     'vehicles' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
     'name' : IDL.Text,
     'state' : AgreementState,
