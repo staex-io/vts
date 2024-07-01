@@ -161,7 +161,7 @@ pub struct PendingInvoice {
 #[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
 pub struct AccumulatedTelemetryYearly {
     pub value: u128,
-    pub monthy: HashMap<u8, AccumulatedTelemetryMonthy>,
+    pub monthly: HashMap<u8, AccumulatedTelemetryMonthy>,
 }
 
 #[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
@@ -262,7 +262,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .and_modify(|v| v.value += *value)
                                     .or_insert(AccumulatedTelemetryYearly {
                                         value: *value,
-                                        monthy: HashMap::new(),
+                                        monthly: HashMap::new(),
                                     });
                                 vehicle
                                     .accumulated_telemetry
@@ -270,7 +270,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .ok_or(Error::NotFound)?
                                     .get_mut(year)
                                     .ok_or(Error::NotFound)?
-                                    .monthy
+                                    .monthly
                                     .entry(*month)
                                     .and_modify(|v| v.value += *value)
                                     .or_insert(AccumulatedTelemetryMonthy {
@@ -283,7 +283,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .ok_or(Error::NotFound)?
                                     .get_mut(year)
                                     .ok_or(Error::NotFound)?
-                                    .monthy
+                                    .monthly
                                     .entry(*month)
                                     .or_default()
                                     .daily
@@ -806,7 +806,64 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                     )]),
                 )]),
                 on_off: true,
-                accumulated_telemetry: HashMap::new(),
+                accumulated_telemetry: HashMap::from_iter(vec![(
+                    TelemetryType::Gas,
+                    HashMap::from_iter(vec![
+                        (
+                            2023,
+                            AccumulatedTelemetryYearly {
+                                value: 2551,
+                                monthly: HashMap::from_iter(vec![(
+                                    7,
+                                    AccumulatedTelemetryMonthy {
+                                        value: 2551,
+                                        daily: HashMap::from_iter(vec![
+                                            (1, 21),
+                                            (2, 91),
+                                            (4, 62),
+                                            (5, 66),
+                                            (6, 25),
+                                        ]),
+                                    },
+                                )]),
+                            },
+                        ),
+                        (
+                            2024,
+                            AccumulatedTelemetryYearly {
+                                value: 8892,
+                                monthly: HashMap::from_iter(vec![
+                                    (
+                                        6,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 2244,
+                                            daily: HashMap::from_iter(vec![
+                                                (2, 52),
+                                                (5, 79),
+                                                (9, 67),
+                                                (12, 51),
+                                                (15, 45),
+                                            ]),
+                                        },
+                                    ),
+                                    (
+                                        7,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 6612,
+                                            daily: HashMap::from_iter(vec![
+                                                (1, 67),
+                                                (2, 99),
+                                                (4, 87),
+                                                (5, 21),
+                                                (6, 72),
+                                            ]),
+                                        },
+                                    ),
+                                ]),
+                            },
+                        ),
+                    ]),
+                )]),
             },
         )
     });

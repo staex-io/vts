@@ -19,7 +19,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const AccumulatedTelemetryYearly = IDL.Record({
     'value' : IDL.Nat,
-    'monthy' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
+    'monthly' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
   });
   const Result_2 = IDL.Variant({
     'Ok' : IDL.Vec(

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use agent::{generate_vehicle, upload_firmware};
 use candid::{Decode, Encode, Principal};
-use ic_agent::Identity;
+use ic_agent::{identity::Secp256k1Identity, Identity};
 use k256::ecdsa::{signature::SignerMut, Signature};
 use vts::{
     AccumulatedTelemetry, AccumulatedTelemetryMonthy, AccumulatedTelemetryYearly, TelemetryType, VTSResult,
@@ -44,13 +44,16 @@ async fn test_get_aggregated_data() {
     let (agent, canister_id) = init_agent().await;
     register_user(&agent, canister_id, agent.get_principal().unwrap()).await;
 
-    let vehicle_principal =
-        Principal::from_text("zddkf-v7muw-3zj2q-kwijg-ulgjf-lpj32-t5qvx-5l3yb-rarsi-pq5w6-3ae").unwrap();
+    let mut rng = rand::thread_rng();
+    let vehicle_secret_key = k256::SecretKey::random(&mut rng);
+    let vehicle_identity = Secp256k1Identity::from_private_key(vehicle_secret_key);
+    let vehicle_public_key = hex::encode(vehicle_identity.public_key().unwrap().to_vec());
+    let vehicle = vehicle_identity.sender().unwrap();
 
     agent
         .update(&canister_id, "fill_predefined_telemetry")
         .with_effective_canister_id(canister_id)
-        .with_arg(Encode!(&Principal::anonymous(), &Principal::anonymous(), &vehicle_principal).unwrap())
+        .with_arg(Encode!(&Principal::anonymous(), &Principal::anonymous(), &vehicle_public_key).unwrap())
         .call_and_wait()
         .await
         .unwrap();
@@ -64,7 +67,7 @@ async fn test_get_aggregated_data() {
 
     let response: Vec<u8> = agent
         .query(&canister_id, "get_aggregated_data")
-        .with_arg(Encode!(&vehicle_principal).unwrap())
+        .with_arg(Encode!(&vehicle).unwrap())
         .call()
         .await
         .unwrap();
@@ -76,7 +79,7 @@ async fn test_get_aggregated_data() {
             2024,
             AccumulatedTelemetryYearly {
                 value: 1387,
-                monthy: HashMap::from_iter(vec![(
+                monthly: HashMap::from_iter(vec![(
                     6,
                     AccumulatedTelemetryMonthy {
                         value: 1387,

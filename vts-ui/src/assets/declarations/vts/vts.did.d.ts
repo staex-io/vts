@@ -8,7 +8,7 @@ export interface AccumulatedTelemetryMonthy {
 }
 export interface AccumulatedTelemetryYearly {
   'value' : bigint,
-  'monthy' : Array<[number, AccumulatedTelemetryMonthy]>,
+  'monthly' : Array<[number, AccumulatedTelemetryMonthy]>,
 }
 export interface Agreement {
   'vehicles' : Array<[Principal, null]>,
