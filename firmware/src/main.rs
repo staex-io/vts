@@ -21,7 +21,7 @@ fn main() {
     let identity = Secp256k1Identity::from_private_key(secret_key);
 
     let principal = identity.sender().unwrap();
-    eprintln!("Public key (hex): {}", hex::encode(identity.public_key().unwrap().to_vec()));
+    eprintln!("Public key (hex): {}", hex::encode(identity.public_key().unwrap()));
     eprintln!("Identity (sender): {}", principal);
 
     // Gateway client.

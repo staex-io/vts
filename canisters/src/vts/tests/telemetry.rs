@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
 use agent::{generate_vehicle, upload_firmware};
 use candid::{Decode, Encode, Principal};
 use ic_agent::{identity::Secp256k1Identity, Identity};
 use k256::ecdsa::{signature::SignerMut, Signature};
-use vts::{
-    AccumulatedTelemetry, AccumulatedTelemetryMonthy, AccumulatedTelemetryYearly, TelemetryType, VTSResult,
-};
+use vts::{AccumulatedTelemetry, TelemetryType, VTSResult};
 
 use crate::agent::{init_agent, register_user};
 
@@ -47,7 +43,7 @@ async fn test_get_aggregated_data() {
     let mut rng = rand::thread_rng();
     let vehicle_secret_key = k256::SecretKey::random(&mut rng);
     let vehicle_identity = Secp256k1Identity::from_private_key(vehicle_secret_key);
-    let vehicle_public_key = hex::encode(vehicle_identity.public_key().unwrap().to_vec());
+    let vehicle_public_key = hex::encode(vehicle_identity.public_key().unwrap());
     let vehicle = vehicle_identity.sender().unwrap();
 
     agent
