@@ -145,6 +145,12 @@ enum AgreementState {
     Signed,
 }
 
+#[derive(CandidType, Deserialize)]
+enum InvoiceStatus {
+    Unpaid,
+    Paid,
+}
+
 #[derive(BEncode, BDecode)]
 pub struct StoreTelemetryRequest {
     pub value: u128,
@@ -196,12 +202,13 @@ struct Vehicle {
 }
 impl_storable!(Vehicle);
 
-#[derive(CandidType, Deserialize, Clone)]
+#[derive(CandidType, Deserialize)]
 struct Invoice {
     id: u128,
+    status: InvoiceStatus,
     vehicle: Principal,
-    period: (String, String),
-    total_cost: u64,
+    period: (i32, u8), // year + month
+    total_cost: u128,
 }
 impl_storable!(Invoice);
 
@@ -236,7 +243,7 @@ fn init() {
 fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
     INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
-        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
+        invoices.get(&invoice_id).ok_or(Error::NotFound)
     })
 }
 
@@ -326,34 +333,13 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         } else {
             (timestamp.year(), timestamp.month().previous())
         };
-        let start_period = format!("{}-{:02}-01", previous_year, previous_month as u8);
-        let end_period = format!(
-            "{}-{:02}-{}",
-            previous_year,
-            previous_month as u8,
-            match previous_month {
-                Month::January
-                | Month::March
-                | Month::May
-                | Month::July
-                | Month::August
-                | Month::October
-                | Month::December => 31,
-                Month::April | Month::June | Month::September | Month::November => 30,
-                Month::February
-                    if (previous_year % 4 == 0 && previous_year % 100 != 0) || (previous_year % 400 == 0) =>
-                    29,
-                Month::February => 28,
-            }
-        );
-
         VEHICLES.with(|vehicles| -> VTSResult<()> {
             let vehicles = vehicles.borrow();
             for (vehicle_id, _) in vehicles.iter() {
                 create_invoice(
                     vehicle_id,
-                    start_period.clone(),
-                    end_period.clone(),
+                    previous_year,
+                    previous_month as u8,
                     &get_aggregated_data(vehicle_id)?,
                 )?;
             }
@@ -838,6 +824,20 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
     // Add one pending firmware request.
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().insert(vh_customer, ()));
 
+    INVOICES.with(|invoices| {
+        invoices.borrow_mut().insert(
+            1,
+            Invoice {
+                id: 1,
+                status: InvoiceStatus::Unpaid,
+                vehicle,
+                period: (2024, 7),
+                total_cost: 123,
+            },
+        );
+    });
+    AGREEMENT_ID_COUNTER.set(1);
+
     // Initialize vehicle.
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
@@ -925,16 +925,14 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
 
 fn create_invoice(
     vehicle_id: Principal,
-    start_period: String,
-    end_period: String,
+    year: i32,
+    month: u8,
     aggregated_data: &AccumulatedTelemetry,
 ) -> VTSResult<()> {
     let existing_invoice = INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
         invoices.iter().any(|invoice| {
-            invoice.1.vehicle == vehicle_id
-                && invoice.1.period.0 == start_period
-                && invoice.1.period.1 == end_period
+            invoice.1.vehicle == vehicle_id && invoice.1.period.0 == year && invoice.1.period.1 == month
         })
     });
     if existing_invoice {
@@ -973,9 +971,10 @@ fn create_invoice(
     });
     let invoice = Invoice {
         id: invoice_id,
+        status: InvoiceStatus::Unpaid,
         vehicle: vehicle_id,
-        period: (start_period, end_period),
-        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
+        period: (year, month),
+        total_cost: total_cost.to_u128().ok_or(Error::Internal)?,
     };
 
     INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
