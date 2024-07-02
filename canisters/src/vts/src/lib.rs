@@ -740,7 +740,7 @@ fn clean_state() {
 
 // We use this method only in tests to not restart dfx node.
 // To make pre-fill with some data for testing purposes.
-// #[cfg(feature = "predefined_telemetry")]
+#[cfg(feature = "predefined_telemetry")]
 #[ic_cdk::update]
 fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
     const SIGNED_AGREEMENT_ID: u128 = 1;
