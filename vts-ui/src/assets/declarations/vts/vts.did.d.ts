@@ -81,8 +81,9 @@ export interface Vehicle {
       Array<[number, Array<[number, Array<[number, Array<bigint>]>]>]>,
     ]
   >,
+  'provider' : [] | [Principal],
+  'customer' : Principal,
   'public_key' : Uint8Array | number[],
-  'owner' : Principal,
   'arch' : string,
   'agreement' : [] | [bigint],
   'firmware' : Uint8Array | number[],
@@ -122,6 +123,7 @@ export interface _SERVICE {
     [Principal, Uint8Array | number[], Uint8Array | number[]],
     Result_10
   >,
+  'turn_on_off_vehicle' : ActorMethod<[Principal, boolean], Result>,
   'upload_firmware' : ActorMethod<
     [Principal, Uint8Array | number[], string, Uint8Array | number[]],
     Result

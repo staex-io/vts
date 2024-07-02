@@ -68,8 +68,9 @@ type Vehicle = record {
     TelemetryType;
     vec record { int32; vec record { nat8; vec record { nat8; vec nat } } };
   };
+  provider : opt principal;
+  customer : principal;
   public_key : blob;
-  owner : principal;
   arch : text;
   agreement : opt nat;
   firmware : blob;
@@ -92,7 +93,7 @@ service : () -> {
   get_aggregated_data : (principal) -> (Result_2) query;
   get_firmware_requests : () -> (Result_3) query;
   get_firmware_requests_by_user : () -> (Result) query;
-  get_invoice : (nat) -> (Result_4);
+  get_invoice : (nat) -> (Result_4) query;
   get_paid_invoices : () -> (Result_5) query;
   get_pending_invoices : () -> (Result_5) query;
   get_user : () -> (Result_6) query;
@@ -104,5 +105,6 @@ service : () -> {
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);
   store_telemetry : (principal, blob, blob) -> (Result_10);
+  turn_on_off_vehicle : (principal, bool) -> (Result);
   upload_firmware : (principal, blob, text, blob) -> (Result);
 }
