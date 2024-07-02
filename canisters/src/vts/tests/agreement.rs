@@ -19,7 +19,6 @@ async fn test_create_agreement() {
         canister_id,
         "test",
         Principal::anonymous(),
-        "100",
         "10",
         identity.public_key().unwrap(),
     )
@@ -38,7 +37,6 @@ async fn test_sign_agreement() {
         canister_id,
         "test",
         agent.get_principal().unwrap(),
-        "100",
         "10",
         identity.public_key().unwrap(),
     )
@@ -68,7 +66,6 @@ async fn test_sign_agreement_twice() {
         "test",
         agent.get_principal().unwrap(),
         "100",
-        "10",
         identity.public_key().unwrap(),
     )
     .await
@@ -91,7 +88,6 @@ async fn test_create_duplicate_agreements() {
         canister_id,
         "test_1",
         agent.get_principal().unwrap(),
-        "100",
         "10",
         identity.public_key().unwrap(),
     )
@@ -103,7 +99,6 @@ async fn test_create_duplicate_agreements() {
         canister_id,
         "test_2",
         agent.get_principal().unwrap(),
-        "100",
         "10",
         identity.public_key().unwrap(),
     )
@@ -120,17 +115,10 @@ async fn test_link_vehicle_to_agreement_success() {
     let vehicle = identity.sender().unwrap();
     let public_key = identity.public_key().unwrap();
 
-    let agreement_id = create_agreement(
-        &agent,
-        canister_id,
-        "test",
-        agent.get_principal().unwrap(),
-        "100",
-        "10",
-        public_key,
-    )
-    .await
-    .unwrap();
+    let agreement_id =
+        create_agreement(&agent, canister_id, "test", agent.get_principal().unwrap(), "10", public_key)
+            .await
+            .unwrap();
 
     let result = link_vehicle(&agent, canister_id, &agreement_id, &vehicle).await;
     assert!(result.is_ok(), "should successfully link the vehicle to the agreement");
@@ -155,17 +143,10 @@ async fn test_get_vehicles_by_agreement() {
     let vehicle = identity.sender().unwrap();
     let public_key = identity.public_key().unwrap();
 
-    let agreement_id = create_agreement(
-        &agent,
-        canister_id,
-        "test",
-        agent.get_principal().unwrap(),
-        "100",
-        "10",
-        public_key,
-    )
-    .await
-    .unwrap();
+    let agreement_id =
+        create_agreement(&agent, canister_id, "test", agent.get_principal().unwrap(), "10", public_key)
+            .await
+            .unwrap();
 
     link_vehicle(&agent, canister_id, &agreement_id, &vehicle).await.unwrap();
 
@@ -189,7 +170,6 @@ async fn create_agreement(
     canister_id: Principal,
     name: &str,
     vh_customer: Principal,
-    daily_usage_fee: &str,
     gas_price: &str,
     public_key: Vec<u8>,
 ) -> VTSResult<u128> {
@@ -200,10 +180,7 @@ async fn create_agreement(
     let response = agent
         .update(&canister_id, "create_agreement")
         .with_effective_canister_id(canister_id)
-        .with_arg(
-            Encode!(&name.to_string(), &vh_customer, &daily_usage_fee.to_string(), &gas_price.to_string())
-                .unwrap(),
-        )
+        .with_arg(Encode!(&name.to_string(), &vh_customer, &gas_price.to_string()).unwrap())
         .call_and_wait()
         .await
         .unwrap();

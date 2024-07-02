@@ -161,7 +161,7 @@ pub struct PendingInvoice {
 #[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
 pub struct AccumulatedTelemetryYearly {
     pub value: u128,
-    pub monthy: HashMap<u8, AccumulatedTelemetryMonthy>,
+    pub monthly: HashMap<u8, AccumulatedTelemetryMonthy>,
 }
 
 #[derive(CandidType, Deserialize, Default, PartialEq, Debug)]
@@ -206,6 +206,7 @@ impl_storable!(Invoice);
 
 #[derive(CandidType, Deserialize)]
 struct Agreement {
+    id: u128, // we need to store it here to be able to use it on frontend
     name: String,
     vh_provider: Principal,
     vh_customer: Principal,
@@ -262,7 +263,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .and_modify(|v| v.value += *value)
                                     .or_insert(AccumulatedTelemetryYearly {
                                         value: *value,
-                                        monthy: HashMap::new(),
+                                        monthly: HashMap::new(),
                                     });
                                 vehicle
                                     .accumulated_telemetry
@@ -270,7 +271,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .ok_or(Error::NotFound)?
                                     .get_mut(year)
                                     .ok_or(Error::NotFound)?
-                                    .monthy
+                                    .monthly
                                     .entry(*month)
                                     .and_modify(|v| v.value += *value)
                                     .or_insert(AccumulatedTelemetryMonthy {
@@ -283,7 +284,7 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
                                     .ok_or(Error::NotFound)?
                                     .get_mut(year)
                                     .ok_or(Error::NotFound)?
-                                    .monthy
+                                    .monthly
                                     .entry(*month)
                                     .or_default()
                                     .daily
@@ -530,6 +531,7 @@ fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> 
 
     AGREEMENTS.with(|agreements| {
         let agreement = Agreement {
+            id: next_agreement_id,
             name,
             vh_provider: caller,
             vh_customer,
@@ -740,29 +742,40 @@ fn clean_state() {
 // To make pre-fill with some data for testing purposes.
 #[cfg(feature = "predefined_telemetry")]
 #[ic_cdk::update]
-fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle: Principal) {
-    const AGREEMENT_ID: u128 = 1;
+fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
+    const SIGNED_AGREEMENT_ID: u128 = 1;
+    const UNSIGNED_AGREEMENT_ID: u128 = 2;
 
-    // Initialize admin.
-    ADMINS.with(|admins| admins.borrow_mut().insert(vh_provider, Admin {}));
-    // Add customer to users storage.
+    let vehicle_public_key = hex::decode(vehicle_public_key_hex).unwrap();
+    let vehicle = Principal::self_authenticating(&vehicle_public_key);
+
+    // Add provider and customer to users storage.
     USERS.with(|users| {
+        users.borrow_mut().insert(
+            vh_provider,
+            User {
+                vehicles: HashMap::new(),
+                agreements: HashMap::from_iter(vec![(SIGNED_AGREEMENT_ID, ()), (UNSIGNED_AGREEMENT_ID, ())]),
+                email: Some(String::from("provider@staex.io")),
+            },
+        );
         users.borrow_mut().insert(
             vh_customer,
             User {
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
-                agreements: HashMap::from_iter(vec![(AGREEMENT_ID, ())]),
-                email: None,
+                agreements: HashMap::from_iter(vec![(SIGNED_AGREEMENT_ID, ()), (UNSIGNED_AGREEMENT_ID, ())]),
+                email: Some(String::from("customer@staex.io")),
             },
-        )
+        );
     });
 
     // Initialize agreement.
     AGREEMENTS.with(|agreements| {
         agreements.borrow_mut().insert(
-            AGREEMENT_ID,
+            SIGNED_AGREEMENT_ID,
             Agreement {
-                name: String::from("Test Agreement"),
+                id: SIGNED_AGREEMENT_ID,
+                name: String::from("Solar Energy GmbH"),
                 vh_provider,
                 vh_customer,
                 state: AgreementState::Signed,
@@ -771,9 +784,23 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                 },
                 vehicles: HashMap::from_iter(vec![(vehicle, ())]),
             },
-        )
+        );
+        agreements.borrow_mut().insert(
+            UNSIGNED_AGREEMENT_ID,
+            Agreement {
+                id: UNSIGNED_AGREEMENT_ID,
+                name: String::from("Super Duper Vehicles inc."),
+                vh_provider,
+                vh_customer,
+                state: AgreementState::Unsigned,
+                conditions: AgreementConditions {
+                    gas_price: String::from("4.71"),
+                },
+                vehicles: HashMap::new(),
+            },
+        );
     });
-    AGREEMENT_ID_COUNTER.set(AGREEMENT_ID + 1);
+    AGREEMENT_ID_COUNTER.set(UNSIGNED_AGREEMENT_ID);
 
     // Add one pending firmware request.
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().insert(vh_customer, ()));
@@ -784,27 +811,79 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
             vehicle,
             Vehicle {
                 owner: vh_customer,
-                agreement: Some(AGREEMENT_ID),
-                public_key: Vec::new(),
+                agreement: Some(SIGNED_AGREEMENT_ID),
+                public_key: vehicle_public_key,
                 arch: String::from("amd64"),
                 firmware: Vec::new(),
                 telemetry: HashMap::from_iter(vec![(
                     TelemetryType::Gas,
                     HashMap::from_iter(vec![(
-                        2024,
+                        2023,
                         HashMap::from_iter(vec![(
                             time::Month::June as u8,
-                            HashMap::from_iter(vec![
-                                (15, vec![96, 86]),
-                                (16, vec![52]),
-                                (17, vec![991, 51]),
-                                (18, vec![71, 23, 17]),
-                            ]),
+                            HashMap::from_iter(vec![(15, vec![96])]),
                         )]),
                     )]),
                 )]),
                 on_off: true,
-                accumulated_telemetry: HashMap::new(),
+                accumulated_telemetry: HashMap::from_iter(vec![(
+                    TelemetryType::Gas,
+                    HashMap::from_iter(vec![
+                        (
+                            2023,
+                            AccumulatedTelemetryYearly {
+                                value: 265,
+                                monthly: HashMap::from_iter(vec![(
+                                    7,
+                                    AccumulatedTelemetryMonthy {
+                                        value: 265,
+                                        daily: HashMap::from_iter(vec![
+                                            (1, 21),
+                                            (2, 91),
+                                            (4, 62),
+                                            (5, 66),
+                                            (6, 25),
+                                        ]),
+                                    },
+                                )]),
+                            },
+                        ),
+                        (
+                            2024,
+                            AccumulatedTelemetryYearly {
+                                value: 640,
+                                monthly: HashMap::from_iter(vec![
+                                    (
+                                        6,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 294,
+                                            daily: HashMap::from_iter(vec![
+                                                (2, 52),
+                                                (5, 79),
+                                                (9, 67),
+                                                (12, 51),
+                                                (15, 45),
+                                            ]),
+                                        },
+                                    ),
+                                    (
+                                        7,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 346,
+                                            daily: HashMap::from_iter(vec![
+                                                (1, 67),
+                                                (2, 99),
+                                                (4, 87),
+                                                (5, 21),
+                                                (6, 72),
+                                            ]),
+                                        },
+                                    ),
+                                ]),
+                            },
+                        ),
+                    ]),
+                )]),
             },
         )
     });

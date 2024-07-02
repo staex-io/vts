@@ -4,9 +4,10 @@ type AccumulatedTelemetryMonthy = record {
 };
 type AccumulatedTelemetryYearly = record {
   value : nat;
-  monthy : vec record { nat8; AccumulatedTelemetryMonthy };
+  monthly : vec record { nat8; AccumulatedTelemetryMonthy };
 };
 type Agreement = record {
+  id : nat;
   vehicles : vec record { principal; null };
   name : text;
   state : AgreementState;
@@ -87,7 +88,7 @@ service : () -> {
   delete_paid_invoices : (vec nat) -> ();
   delete_pending_invoices : (vec nat) -> ();
   delete_user : (principal) -> (Result);
-  fill_predefined_telemetry : (principal, principal, principal) -> ();
+  fill_predefined_telemetry : (principal, principal, text) -> ();
   get_aggregated_data : (principal) -> (Result_2) query;
   get_firmware_requests : () -> (Result_3) query;
   get_firmware_requests_by_user : () -> (Result) query;

@@ -2,7 +2,8 @@
 import router from '@/router'
 import { initVTSClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
-import { AgreementFirmwaresRouteName, VehicleLinkRouteName } from '@/constants'
+import { AgreementFirmwaresRouteName, VehicleLinkRouteName, VehicleRouteName } from '@/constants'
+import { downloadFirmware } from '@/download_firmware'
 
 export default {
   async beforeRouteLeave(to, from) {
@@ -82,28 +83,22 @@ export default {
 
       this.requestNewLoader = false
     },
-    async downloadFirmware(identity, arch, firmware) {
-      const firmwareUrl = URL.createObjectURL(
-        new Blob([new Uint8Array(firmware).buffer], { type: 'application/zip' }),
-      )
-      const link = document.createElement('a')
-      link.href = firmwareUrl
-      link.download = `${identity}.firmware.${arch}.zip`
-      document.body.appendChild(link)
-      link.dispatchEvent(
-        new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-        }),
-      )
-      document.body.removeChild(link)
+    downloadFirmware(identity, arch, firmware) {
+      downloadFirmware(identity, arch, firmware)
     },
     linkFirmware(identity) {
       router.push({
         name: VehicleLinkRouteName,
         params: {
           vehicle: identity,
+        },
+      })
+    },
+    goToVehicle(vehicle) {
+      router.push({
+        name: VehicleRouteName,
+        params: {
+          vehicle,
         },
       })
     },
@@ -156,13 +151,15 @@ export default {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="{ agreement, publicKey, arch, firmware } in vehicles" :key="publicKey">
-            <td>{{ publicKeyToPrincipal(publicKey) }}</td>
+          <tr v-for="{ agreement, public_key, arch, firmware } in vehicles" :key="public_key">
+            <td class="mouse-pointer" @click="() => goToVehicle(publicKeyToPrincipal(public_key))">
+              {{ publicKeyToPrincipal(public_key) }}
+            </td>
             <td>{{ arch }}</td>
             <td style="text-align: right">
               <button
                 class="action-btn"
-                @click="() => downloadFirmware(publicKeyToPrincipal(publicKey), arch, firmware)"
+                @click="() => downloadFirmware(publicKeyToPrincipal(public_key), arch, firmware)"
               >
                 Download
               </button>
@@ -171,7 +168,7 @@ export default {
               <button
                 v-if="agreement.length === 0"
                 class="action-btn"
-                @click="() => linkFirmware(publicKeyToPrincipal(publicKey))"
+                @click="() => linkFirmware(publicKeyToPrincipal(public_key))"
               >
                 Link
               </button>

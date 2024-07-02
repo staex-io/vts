@@ -19,7 +19,9 @@ fn main() {
     let secret_key = SecretKey::from_bytes(secret_key.into()).unwrap();
     let mut signing_key = SigningKey::from(&secret_key);
     let identity = Secp256k1Identity::from_private_key(secret_key);
+
     let principal = identity.sender().unwrap();
+    eprintln!("Public key (hex): {}", hex::encode(identity.public_key().unwrap()));
     eprintln!("Identity (sender): {}", principal);
 
     // Gateway client.

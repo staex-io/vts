@@ -19,7 +19,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const AccumulatedTelemetryYearly = IDL.Record({
     'value' : IDL.Nat,
-    'monthy' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
+    'monthly' : IDL.Vec(IDL.Tuple(IDL.Nat8, AccumulatedTelemetryMonthy)),
   });
   const Result_2 = IDL.Variant({
     'Ok' : IDL.Vec(
@@ -59,6 +59,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const AgreementConditions = IDL.Record({ 'gas_price' : IDL.Text });
   const Agreement = IDL.Record({
+    'id' : IDL.Nat,
     'vehicles' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Null)),
     'name' : IDL.Text,
     'state' : AgreementState,
@@ -124,7 +125,7 @@ export const idlFactory = ({ IDL }) => {
     'delete_pending_invoices' : IDL.Func([IDL.Vec(IDL.Nat)], [], []),
     'delete_user' : IDL.Func([IDL.Principal], [Result], []),
     'fill_predefined_telemetry' : IDL.Func(
-        [IDL.Principal, IDL.Principal, IDL.Principal],
+        [IDL.Principal, IDL.Principal, IDL.Text],
         [],
         [],
       ),

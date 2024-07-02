@@ -16,6 +16,7 @@ serde = { workspace = true }
 candid = { workspace = true }
 k256 = { workspace = true }
 bincode = { workspace = true }
+hex = { workspace = true }
 ic-cdk = { version = "0.14.0", features = [], default-features = false }
 ic-stable-structures = { version = "0.6.5", features = [], default-features = false }
 time = { version = "0.3.36", features = [], default-features = false }

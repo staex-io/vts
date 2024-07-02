@@ -10,3 +10,4 @@ bincode = { workspace = true }
 ic-agent = { workspace = true }
 k256 = { workspace = true }
 rand = { workspace = true }
+hex = { workspace = true }
