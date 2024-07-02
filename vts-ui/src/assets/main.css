@@ -144,6 +144,10 @@ button:disabled:hover {
   background-color: var(--staex-green) !important;
 }
 
+.failure-btn {
+  background-color: var(--staex-red) !important;
+}
+
 .alert {
   padding: 25px;
   border-radius: 4px;

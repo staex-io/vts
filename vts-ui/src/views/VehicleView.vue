@@ -1,6 +1,6 @@
 <script>
 import router from '@/router'
-import { initVTSClient } from '@/icp'
+import { initVTSClient, initAuthClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
 import { downloadFirmware } from '@/download_firmware'
 import { VehicleLinkRouteName } from '@/constants'
@@ -9,7 +9,9 @@ import Chart from 'chart.js/auto'
 export default {
   data() {
     return {
+      user: null,
       vehicle: null,
+      turnOnOffActive: false,
     }
   },
   watch: {
@@ -96,12 +98,41 @@ export default {
     },
   },
   async beforeMount() {
+    const authClient = await initAuthClient()
+    this.user = authClient.getIdentity()._principal.toText()
+
     const vtsClient = await initVTSClient()
     const vehicle = this.$route.params.vehicle
     const res = await vtsClient.get_vehicle(Principal.fromText(vehicle))
     this.vehicle = res.Ok
   },
   methods: {
+    async turnOn() {
+      if (this.turnOnOffActive) return
+      this.turnOnOffActive = true
+      const vtsClient = await initVTSClient()
+      const res = await vtsClient.turn_on_off_vehicle(
+        this.publicKeyToPrincipal(this.vehicle.public_key),
+        true,
+      )
+      if (res.Ok === null) alert('Vehicle is turned on')
+      else alert('Failed to turn on vehicle')
+      this.vehicle.on_off = true
+      this.turnOnOffActive = false
+    },
+    async turnOff() {
+      if (this.turnOnOffActive) return
+      this.turnOnOffActive = true
+      const vtsClient = await initVTSClient()
+      const res = await vtsClient.turn_on_off_vehicle(
+        this.publicKeyToPrincipal(this.vehicle.public_key),
+        false,
+      )
+      if (res.Ok === null) alert('Vehicle is turned off')
+      else alert('Failed to turn off vehicle')
+      this.vehicle.on_off = false
+      this.turnOnOffActive = false
+    },
     linkFirmware() {
       router.push({
         name: VehicleLinkRouteName,
@@ -154,8 +185,17 @@ export default {
             <span class="card-field-value">{{ publicKeyToPrincipal(vehicle.public_key) }}</span>
           </div>
           <div class="card-field">
-            <span class="card-field-label">Owner</span>
-            <span class="card-field-value">{{ vehicle.owner }}</span>
+            <span class="card-field-label">Provider</span>
+            <span v-if="vehicle !== null && vehicle.provider.length !== 0" class="card-field-value">
+              {{ vehicle.provider[0].toText() }}
+            </span>
+            <span v-else class="card-field-value">
+              Link vehicle to agreement to know vehicle provider
+            </span>
+          </div>
+          <div class="card-field">
+            <span class="card-field-label">Customer</span>
+            <span class="card-field-value">{{ vehicle.customer }}</span>
           </div>
           <div class="card-field">
             <span class="card-field-label">Agreement</span>
@@ -172,8 +212,12 @@ export default {
           </div>
           <div class="card-field">
             <span class="card-field-label">Status</span>
-            <span v-if="vehicle.on_off" class="card-field-value">On</span>
-            <span v-if="!vehicle.on_off" class="card-field-value">Off</span>
+            <span v-if="vehicle.on_off" class="card-field-value">
+              <button disabled class="action-btn success-btn">Off</button>
+            </span>
+            <span v-if="!vehicle.on_off" class="card-field-value">
+              <button disabled class="action-btn failure-btn">Off</button>
+            </span>
           </div>
           <div class="card-field">
             <span class="card-field-label">Architecture</span>
@@ -189,9 +233,39 @@ export default {
       </div>
     </div>
   </div>
+  <hr style="margin-bottom: 20px" />
+  <div
+    v-if="
+      vehicle !== null &&
+      vehicle.provider.length !== 0 &&
+      vehicle.provider[0].toText() === user &&
+      !turnOnOffActive
+    "
+    class="centered-container"
+  >
+    <div class="item" style="width: 100%">
+      <button style="width: 100%; height: 100px" @click="turnOn">Turn on</button>
+    </div>
+    <div class="item" style="width: 100%">
+      <button style="width: 100%; height: 100px" @click="turnOff">Turn off</button>
+    </div>
+  </div>
+  <div v-else-if="turnOnOffActive" class="centered-container">
+    <div class="item" style="width: 100%">
+      <button style="width: 100%; height: 100px">
+        <div class="loader" />
+      </button>
+    </div>
+  </div>
+  <div v-else>
+    <div class="alert warning" style="margin: 25px">
+      <h3>In this section vehicle provider can turn on/off the vehicle</h3>
+    </div>
+  </div>
+  <hr style="margin: 20px 0" />
   <div class="centered-container">
     <div class="centered-item">
-      <div style="width: 80%">
+      <div style="width: 70%">
         <h2 v-if="vehicle !== null && vehicle.accumulated_telemetry.length !== 0">
           Usage per year
         </h2>

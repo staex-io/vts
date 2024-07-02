@@ -151,7 +151,6 @@ async fn process_pending_invoices(
     delete_method: &str,
     log_prefix: &str,
 ) -> Res<()> {
-    trace!("starting to check for {log_prefix} invoices",);
     let res = tokio::time::timeout(
         Duration::from_secs(5),
         state
@@ -176,16 +175,13 @@ async fn process_pending_invoices(
         .with_arg(Encode!(&ids)?)
         .call_and_wait()
         .await?;
-    trace!("finished to check for {log_prefix} invoices");
     Ok(())
 }
 
 async fn check_firmware_requests(state: State) -> Res<()> {
-    trace!("starting to check for firmware requests");
     let vh_customer = match get_firmware_request(&state.agent, state.canister_id).await? {
         Some(principal) => principal,
         None => {
-            debug!("no active firmware requests to build new firmware");
             return Ok(());
         }
     };
@@ -357,7 +353,13 @@ async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
                 .with_arg(Encode!(&principal, &telemetry.telemetry, &telemetry.signature)?)
                 .call_and_wait()
                 .await?;
-            let res = Decode!(res.as_slice(), StoreTelemetryResponse)?;
+            let res = match Decode!(res.as_slice(), VTSResult<StoreTelemetryResponse>)? {
+                Ok(res) => res,
+                Err(e) => {
+                    error!("failed to store telemetry: {e}");
+                    return Ok(Response::Failed)
+                },
+            };
             let res = match res {
                 StoreTelemetryResponse::On => Response::TurnOn,
                 StoreTelemetryResponse::Off => Response::TurnOff,

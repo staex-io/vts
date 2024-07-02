@@ -85,8 +85,9 @@ export const idlFactory = ({ IDL }) => {
         ),
       )
     ),
+    'provider' : IDL.Opt(IDL.Principal),
+    'customer' : IDL.Principal,
     'public_key' : IDL.Vec(IDL.Nat8),
-    'owner' : IDL.Principal,
     'arch' : IDL.Text,
     'agreement' : IDL.Opt(IDL.Nat),
     'firmware' : IDL.Vec(IDL.Nat8),
@@ -132,7 +133,7 @@ export const idlFactory = ({ IDL }) => {
     'get_aggregated_data' : IDL.Func([IDL.Principal], [Result_2], ['query']),
     'get_firmware_requests' : IDL.Func([], [Result_3], ['query']),
     'get_firmware_requests_by_user' : IDL.Func([], [Result], ['query']),
-    'get_invoice' : IDL.Func([IDL.Nat], [Result_4], []),
+    'get_invoice' : IDL.Func([IDL.Nat], [Result_4], ['query']),
     'get_paid_invoices' : IDL.Func([], [Result_5], ['query']),
     'get_pending_invoices' : IDL.Func([], [Result_5], ['query']),
     'get_user' : IDL.Func([], [Result_6], ['query']),
@@ -152,6 +153,7 @@ export const idlFactory = ({ IDL }) => {
         [Result_10],
         [],
       ),
+    'turn_on_off_vehicle' : IDL.Func([IDL.Principal, IDL.Bool], [Result], []),
     'upload_firmware' : IDL.Func(
         [IDL.Principal, IDL.Vec(IDL.Nat8), IDL.Text, IDL.Vec(IDL.Nat8)],
         [Result],

@@ -184,7 +184,8 @@ impl_storable!(User);
 
 #[derive(CandidType, Deserialize)]
 struct Vehicle {
-    owner: Principal,
+    provider: Option<Principal>,
+    customer: Principal,
     agreement: Option<u128>,
     public_key: Vec<u8>,
     arch: String,
@@ -221,14 +222,6 @@ struct AgreementConditions {
     gas_price: String,
 }
 
-#[ic_cdk::update]
-fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
-    INVOICES.with(|invoices| {
-        let invoices = invoices.borrow();
-        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
-    })
-}
-
 #[ic_cdk::init]
 fn init() {
     // Every day or 24h.
@@ -239,7 +232,15 @@ fn init() {
     });
 }
 
-#[ic_cdk::update]
+#[ic_cdk::query(guard = is_user)]
+fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
+    INVOICES.with(|invoices| {
+        let invoices = invoices.borrow();
+        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
+    })
+}
+
+#[ic_cdk::update(guard = is_canister)]
 fn accumulate_telemetry_data() -> VTSResult<()> {
     ic_cdk::println!("starting to accumulate telemetry data");
 
@@ -317,7 +318,8 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
 
     // Check if it's the first day of the month.
     let timestamp = ic_cdk::api::time();
-    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp =
+        OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).map_err(|_| Error::InvalidData)?;
     if timestamp.day() == 1 {
         let (previous_year, previous_month) = if timestamp.month() == Month::January {
             (timestamp.year() - 1, Month::December)
@@ -459,9 +461,8 @@ fn request_firmware() -> VTSResult<()> {
 }
 
 // This method can return first available firmware request.
-#[ic_cdk::query]
+#[ic_cdk::query(guard = is_gateway)]
 fn get_firmware_requests() -> VTSResult<Principal> {
-    // todo: this canister method should be executed only by our gateway
     let (identity, _) =
         FIRMWARE_REQUESTS.with(|requests| requests.borrow().first_key_value().ok_or(Error::NotFound))?;
     Ok(identity)
@@ -475,21 +476,21 @@ fn get_firmware_requests_by_user() -> VTSResult<()> {
     Ok(())
 }
 
-#[ic_cdk::update]
+#[ic_cdk::update(guard = is_gateway)]
 fn upload_firmware(
     vh_customer: Principal,
     public_key: Vec<u8>,
     arch: String,
     firmware: Vec<u8>,
 ) -> VTSResult<()> {
-    // todo: this canister method should be executed only by our gateway
     let vehicle = Principal::self_authenticating(&public_key);
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().remove(&vh_customer));
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
             vehicle,
             Vehicle {
-                owner: vh_customer,
+                provider: None,
+                customer: vh_customer,
                 agreement: None,
                 public_key,
                 arch,
@@ -512,7 +513,7 @@ fn upload_firmware(
 fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     let caller = ic_cdk::api::caller();
     let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
-    if vehicle.owner != caller {
+    if vehicle.provider.unwrap_or(Principal::anonymous()) != caller && vehicle.customer != caller {
         return Err(Error::InvalidSigner);
     }
     Ok(vehicle)
@@ -522,6 +523,9 @@ fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
 fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> VTSResult<u128> {
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested agreement creation by {}", caller);
+
+    // Veryfy that user passed ok gas price.
+    Decimal::from_str(&gas_price).map_err(|_| Error::InvalidData)?;
 
     let next_agreement_id = AGREEMENT_ID_COUNTER.with(|counter| {
         let mut counter = counter.borrow_mut();
@@ -536,10 +540,7 @@ fn create_agreement(name: String, vh_customer: Principal, gas_price: String) -> 
             vh_provider: caller,
             vh_customer,
             state: AgreementState::Unsigned,
-            conditions: AgreementConditions {
-                // todo: use decimals library to verify money parameters
-                gas_price,
-            },
+            conditions: AgreementConditions { gas_price },
             vehicles: HashMap::new(),
         };
         let mut agreements = agreements.borrow_mut();
@@ -594,6 +595,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
     AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
+        let vh_provider = agreement.vh_provider;
 
         if agreement.vehicles.contains_key(&vehicle_identity) {
             return Err(Error::AlreadyExists);
@@ -606,13 +608,20 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
 
+        USERS.with(|users| -> VTSResult<()> {
+            let mut provider = users.borrow().get(&vh_provider).ok_or(Error::NotFound)?;
+            provider.vehicles.insert(vehicle_identity, ());
+            users.borrow_mut().insert(vh_provider, provider);
+            Ok(())
+        })?;
+
         Ok(())
     })?;
 
     VEHICLES.with(|vehicles| {
         let mut vehicle = vehicles.borrow_mut().get(&vehicle_identity).ok_or(Error::NotFound)?;
 
-        if caller != vehicle.owner {
+        if caller != vehicle.customer {
             return Err(Error::InvalidSigner);
         }
         if vehicle.agreement.is_some() {
@@ -667,12 +676,13 @@ fn store_telemetry(
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
-    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp =
+        OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).map_err(|_| Error::InvalidSigner)?;
     let on_off = vehicle.on_off;
     vehicle
         .telemetry
         .get_mut(&telemetry.t_type)
-        .ok_or(Error::NotFound)?
+        .get_or_insert(&mut HashMap::new())
         .get_mut(&timestamp.year())
         .get_or_insert(&mut HashMap::new())
         .get_mut(&(timestamp.month() as u8))
@@ -687,25 +697,22 @@ fn store_telemetry(
     Ok(StoreTelemetryResponse::On)
 }
 
-#[ic_cdk::query]
+#[ic_cdk::query(guard = is_gateway)]
 fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    ic_cdk::println!("get pending invoices requests");
     let pending_invoices = PENDING_INVOICES
         .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
     Ok(pending_invoices)
 }
 
-#[ic_cdk::query]
+#[ic_cdk::query(guard = is_gateway)]
 fn get_paid_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    ic_cdk::println!("get paid invoices requests");
     let pending_invoices = PAID_INVOICES
         .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
     Ok(pending_invoices)
 }
 
-#[ic_cdk::update]
+#[ic_cdk::update(guard = is_gateway)]
 fn delete_paid_invoices(ids: Vec<u128>) {
-    // todo: this canister method should be executed only by our gateway
     PAID_INVOICES.with(|invoices| {
         let mut invoices = invoices.borrow_mut();
         for id in ids {
@@ -714,15 +721,27 @@ fn delete_paid_invoices(ids: Vec<u128>) {
     });
 }
 
-#[ic_cdk::update]
+#[ic_cdk::update(guard = is_gateway)]
 fn delete_pending_invoices(ids: Vec<u128>) {
-    // todo: this canister method should be executed only by our gateway
     PENDING_INVOICES.with(|invoices| {
         let mut invoices = invoices.borrow_mut();
         for id in ids {
             invoices.remove(&id);
         }
     });
+}
+
+#[ic_cdk::update(guard = is_user)]
+fn turn_on_off_vehicle(vehicle: Principal, on_off: bool) -> VTSResult<()> {
+    VEHICLES.with(|vehicles| -> VTSResult<()> {
+        let mut v = vehicles.borrow().get(&vehicle).ok_or(Error::NotFound)?;
+        if v.provider.unwrap_or(Principal::anonymous()) != ic_cdk::caller() {
+            return Err(Error::InvalidSigner);
+        }
+        v.on_off = on_off;
+        vehicles.borrow_mut().insert(vehicle, v);
+        Ok(())
+    })
 }
 
 // We use this method only in tests to not restart dfx node.
@@ -754,7 +773,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
         users.borrow_mut().insert(
             vh_provider,
             User {
-                vehicles: HashMap::new(),
+                vehicles: HashMap::from_iter(vec![(vehicle, ())]),
                 agreements: HashMap::from_iter(vec![(SIGNED_AGREEMENT_ID, ()), (UNSIGNED_AGREEMENT_ID, ())]),
                 email: Some(String::from("provider@staex.io")),
             },
@@ -810,7 +829,8 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
         vehicles.borrow_mut().insert(
             vehicle,
             Vehicle {
-                owner: vh_customer,
+                provider: Some(vh_provider),
+                customer: vh_customer,
                 agreement: Some(SIGNED_AGREEMENT_ID),
                 public_key: vehicle_public_key,
                 arch: String::from("amd64"),
@@ -955,7 +975,6 @@ fn prepare_pending_invoices(
 ) -> VTSResult<Vec<PendingInvoice>> {
     let is_no_pending_invoices = storage.borrow().is_empty();
     if is_no_pending_invoices {
-        ic_cdk::println!("there are no pending invoices");
         return Ok(vec![]);
     }
     let mut pending_invoices_ids: Vec<u128> = Vec::new();
@@ -972,12 +991,12 @@ fn prepare_pending_invoices(
                 let vehicle = VEHICLES.with(|vehicles| -> VTSResult<Vehicle> {
                     vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)
                 })?;
-                let owner: User = USERS.with(|users| -> VTSResult<User> {
-                    users.borrow().get(&vehicle.owner).ok_or(Error::NotFound)
+                let customer: User = USERS.with(|users| -> VTSResult<User> {
+                    users.borrow().get(&vehicle.customer).ok_or(Error::NotFound)
                 })?;
                 pending_invoices.push(PendingInvoice {
                     id: pending_invoice_id,
-                    customer_email: owner.email,
+                    customer_email: customer.email,
                     vehicle: invoice.vehicle,
                 });
             }
@@ -1002,6 +1021,16 @@ fn is_user() -> Result<(), String> {
         }
         Ok(())
     })
+}
+
+fn is_gateway() -> Result<(), String> {
+    // todo: implement it
+    Ok(())
+}
+
+fn is_canister() -> Result<(), String> {
+    // todo: implement it
+    Ok(())
 }
 
 // Enable Candid export (see https://internetcomputer.org/docs/current/developer-docs/backend/rust/generating-candid)

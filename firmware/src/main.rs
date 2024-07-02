@@ -62,6 +62,10 @@ fn main() {
                     eprintln!("TurnOff response; Vehicle is not working; Skip this response")
                 }
             }
+            gateway_tcp::Response::Failed => {
+                eprintln!("Store telemetry request failed");
+                continue;
+            }
         }
         eprintln!(
             "{} telemetry successfully sent to the gateway",
