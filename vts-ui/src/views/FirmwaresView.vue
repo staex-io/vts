@@ -53,8 +53,8 @@ export default {
     },
     async prepareVehicles(vtsClient, rawVehicles) {
       for (let i = 0; i < rawVehicles.length; i++) {
-        const vehicle = (await vtsClient.get_vehicle(rawVehicles[i][0])).Ok
-        this.vehicles[i] = vehicle
+        const vehicle = await vtsClient.get_vehicle(rawVehicles[i][0])
+        this.vehicles[i] = vehicle.Ok
       }
     },
     async fetchUserVehicles(vtsClient) {
@@ -146,16 +146,24 @@ export default {
           <tr>
             <th>Internet Identity</th>
             <th>Arch</th>
+            <th>Status</th>
             <th />
             <th v-if="agreementId === 0" />
           </tr>
         </thead>
         <tbody>
-          <tr v-for="{ agreement, public_key, arch, firmware } in vehicles" :key="public_key">
+          <tr
+            v-for="{ agreement, public_key, arch, on_off, firmware } in vehicles"
+            :key="public_key"
+          >
             <td class="mouse-pointer" @click="() => goToVehicle(publicKeyToPrincipal(public_key))">
               {{ publicKeyToPrincipal(public_key) }}
             </td>
             <td>{{ arch }}</td>
+            <td>
+              <button v-if="on_off" disabled class="action-btn success-btn">On</button>
+              <button v-if="!on_off" disabled class="action-btn failure-btn">Off</button>
+            </td>
             <td style="text-align: right">
               <button
                 class="action-btn"

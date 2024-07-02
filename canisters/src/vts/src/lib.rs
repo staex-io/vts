@@ -513,8 +513,17 @@ fn upload_firmware(
 fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     let caller = ic_cdk::api::caller();
     let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
-    if vehicle.provider.unwrap_or(Principal::anonymous()) != caller && vehicle.customer != caller {
-        return Err(Error::InvalidSigner);
+    match vehicle.provider {
+        Some(provider) => {
+            if provider != caller && vehicle.customer != caller {
+                return Err(Error::InvalidSigner);
+            }
+        }
+        None => {
+            if vehicle.customer != caller {
+                return Err(Error::InvalidSigner);
+            }
+        }
     }
     Ok(vehicle)
 }
@@ -592,7 +601,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
-    AGREEMENTS.with(|agreements| {
+    let vh_provider: Principal = AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
         let vh_provider = agreement.vh_provider;
@@ -608,14 +617,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
 
-        USERS.with(|users| -> VTSResult<()> {
-            let mut provider = users.borrow().get(&vh_provider).ok_or(Error::NotFound)?;
-            provider.vehicles.insert(vehicle_identity, ());
-            users.borrow_mut().insert(vh_provider, provider);
-            Ok(())
-        })?;
-
-        Ok(())
+        Ok(vh_provider)
     })?;
 
     VEHICLES.with(|vehicles| {
@@ -629,8 +631,16 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         }
 
         vehicle.agreement = Some(agreement_id);
+        vehicle.provider = Some(vh_provider);
         vehicles.borrow_mut().insert(vehicle_identity, vehicle);
 
+        Ok(())
+    })?;
+
+    USERS.with(|users| -> VTSResult<()> {
+        let mut provider = users.borrow().get(&vh_provider).ok_or(Error::NotFound)?;
+        provider.vehicles.insert(vehicle_identity, ());
+        users.borrow_mut().insert(vh_provider, provider);
         Ok(())
     })
 }
@@ -735,7 +745,11 @@ fn delete_pending_invoices(ids: Vec<u128>) {
 fn turn_on_off_vehicle(vehicle: Principal, on_off: bool) -> VTSResult<()> {
     VEHICLES.with(|vehicles| -> VTSResult<()> {
         let mut v = vehicles.borrow().get(&vehicle).ok_or(Error::NotFound)?;
-        if v.provider.unwrap_or(Principal::anonymous()) != ic_cdk::caller() {
+        if let Some(provider) = v.provider {
+            if provider != ic_cdk::caller() {
+                return Err(Error::InvalidSigner);
+            }
+        } else {
             return Err(Error::InvalidSigner);
         }
         v.on_off = on_off;

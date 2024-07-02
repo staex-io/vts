@@ -213,7 +213,7 @@ export default {
           <div class="card-field">
             <span class="card-field-label">Status</span>
             <span v-if="vehicle.on_off" class="card-field-value">
-              <button disabled class="action-btn success-btn">Off</button>
+              <button disabled class="action-btn success-btn">On</button>
             </span>
             <span v-if="!vehicle.on_off" class="card-field-value">
               <button disabled class="action-btn failure-btn">Off</button>
