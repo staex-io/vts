@@ -17,6 +17,7 @@ pub enum Request {
 pub enum Response {
     TurnOn,
     TurnOff,
+    Failed,
 }
 
 #[derive(Encode, Decode)]
@@ -43,7 +44,15 @@ impl Client {
         self.stream.write_all(&buf).map_err(map_err)?;
 
         let mut buf = vec![0; 8];
-        self.stream.read(&mut buf).map_err(map_err)?;
+        let n = loop {
+            let n = self.stream.read(&mut buf).map_err(map_err)?;
+            if n == 0 {
+                continue;
+            }
+            break n;
+        };
+        buf.truncate(n);
+
         let res: Response = bincode::decode_from_slice(&buf, bincode::config::standard()).map_err(map_err)?.0;
         Ok(res)
     }

@@ -318,7 +318,8 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
 
     // Check if it's the first day of the month.
     let timestamp = ic_cdk::api::time();
-    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp =
+        OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).map_err(|_| Error::InvalidData)?;
     if timestamp.day() == 1 {
         let (previous_year, previous_month) = if timestamp.month() == Month::January {
             (timestamp.year() - 1, Month::December)
@@ -675,12 +676,13 @@ fn store_telemetry(
         .0;
     ic_cdk::println!("received new telemetry: value={}; type={:?}", telemetry.value, telemetry.t_type);
     let timestamp = ic_cdk::api::time();
-    let timestamp = OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).unwrap();
+    let timestamp =
+        OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128).map_err(|_| Error::InvalidSigner)?;
     let on_off = vehicle.on_off;
     vehicle
         .telemetry
         .get_mut(&telemetry.t_type)
-        .ok_or(Error::NotFound)?
+        .get_or_insert(&mut HashMap::new())
         .get_mut(&timestamp.year())
         .get_or_insert(&mut HashMap::new())
         .get_mut(&(timestamp.month() as u8))
@@ -697,7 +699,6 @@ fn store_telemetry(
 
 #[ic_cdk::query(guard = is_gateway)]
 fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    ic_cdk::println!("get pending invoices requests");
     let pending_invoices = PENDING_INVOICES
         .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
     Ok(pending_invoices)
@@ -705,7 +706,6 @@ fn get_pending_invoices() -> VTSResult<Vec<PendingInvoice>> {
 
 #[ic_cdk::query(guard = is_gateway)]
 fn get_paid_invoices() -> VTSResult<Vec<PendingInvoice>> {
-    ic_cdk::println!("get paid invoices requests");
     let pending_invoices = PAID_INVOICES
         .with(|invoices| -> VTSResult<Vec<PendingInvoice>> { prepare_pending_invoices(invoices) })?;
     Ok(pending_invoices)
@@ -975,7 +975,6 @@ fn prepare_pending_invoices(
 ) -> VTSResult<Vec<PendingInvoice>> {
     let is_no_pending_invoices = storage.borrow().is_empty();
     if is_no_pending_invoices {
-        ic_cdk::println!("there are no pending invoices");
         return Ok(vec![]);
     }
     let mut pending_invoices_ids: Vec<u128> = Vec::new();
