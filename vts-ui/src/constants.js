@@ -25,4 +25,4 @@ export const monthIndexToName = (month) => {
   return names[month - 1]
 }
 
-export const TokensMultiplier = 1_000_000_000
+export const TokenMultiplier = 1_000_000_000

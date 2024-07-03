@@ -5,7 +5,7 @@ import { initAuthClient, initVTSClient, initICPLedgerClient } from '@/icp'
 <script>
 import router from '@/router'
 import { Principal } from '@dfinity/principal'
-import { TokensMultiplier } from '@/constants'
+import { TokenMultiplier } from '@/constants'
 
 export default {
   data() {
@@ -29,7 +29,7 @@ export default {
         owner: this.principal,
         subaccount: [],
       })
-      const balance = Number(rawBalance) / TokensMultiplier
+      const balance = Number(rawBalance) / TokenMultiplier
       this.balance = balance
 
       // It is a hack right now to be able to pay for the invoice.
