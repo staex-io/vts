@@ -2,7 +2,7 @@
 import router from '@/router'
 import { Principal } from '@dfinity/principal'
 import { initVTSClient } from '@/icp'
-import { InvoiceRouteName, monthIndexToName } from '@/constants'
+import { InvoiceRouteName, monthIndexToName, TokenMultiplier } from '@/constants'
 
 export default {
   data() {
@@ -29,12 +29,15 @@ export default {
     prettyPeriod(period) {
       return `${period[0]} ${monthIndexToName(period[1])}`
     },
-    goToInvoice() {
+    prepareTotalCost(totalCost) {
+      return Number(totalCost) / TokenMultiplier
+    },
+    goToInvoice(id) {
       router.push({
         name: InvoiceRouteName,
         params: {
-          vehicle: this.publicKeyToPrincipal(this.vehicle.public_key),
-          id: this.invoice.id,
+          vehicle: this.vehicle,
+          id: id,
         },
       })
     },
@@ -59,9 +62,14 @@ export default {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="{ id, period, status, total_cost } in invoices" :key="id">
+        <tr
+          v-for="{ id, period, status, total_cost } in invoices"
+          :key="id"
+          class="mouse-pointer"
+          @click="() => goToInvoice(id)"
+        >
           <td>{{ prettyPeriod(period) }}</td>
-          <td>{{ total_cost }}&nbsp;ICP</td>
+          <td>{{ prepareTotalCost(total_cost) }}&nbsp;ICP</td>
           <td>
             <button v-if="status.Paid === null" class="status-btn success-btn" disabled>
               Paid

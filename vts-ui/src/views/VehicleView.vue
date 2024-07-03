@@ -19,6 +19,7 @@ export default {
       if (vehicle.accumulated_telemetry.length === 0) return
 
       const accT = vehicle.accumulated_telemetry
+      const telemetryType = Object.keys(accT[0][0])[0]
 
       const yearly = accT[0][1].sort((a, b) => {
         if (a[0] < b[0]) return -1
@@ -33,7 +34,7 @@ export default {
           labels: years,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per year`,
+              label: `${telemetryType} usage per year`,
               data: yearsData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 157, 196)',
@@ -42,8 +43,10 @@ export default {
         },
         options: { scales: { y: { beginAtZero: true } } },
       })
+      const lastYear = yearly[yearly.length - 1][0]
+      const lastYearData = yearly[yearly.length - 1][1]
 
-      const monthly = accT[0][1][accT[0][1].length - 1][1].monthly.sort((a, b) => {
+      const monthly = lastYearData.monthly.sort((a, b) => {
         if (a[0] < b[0]) return -1
         if (a[0] > b[0]) return 1
         else return 0
@@ -59,7 +62,7 @@ export default {
           labels: months,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per month for ${accT[0][1][accT[0][1].length - 1][0]}`,
+              label: `${telemetryType} usage per month for ${lastYear}`,
               data: monthlyData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 47, 59)',
@@ -68,8 +71,10 @@ export default {
         },
         options: { scales: { y: { beginAtZero: true } } },
       })
+      const lastMonth = monthly[monthly.length - 1][0]
+      const lastMonthData = monthly[monthly.length - 1][1]
 
-      const daily = accT[0][1][accT[0][1].length - 1][1].monthly[0][1].daily.sort((a, b) => {
+      const daily = lastMonthData.daily.sort((a, b) => {
         if (a[0] < b[0]) return -1
         if (a[0] > b[0]) return 1
         else return 0
@@ -86,7 +91,7 @@ export default {
           labels: days,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per month for ${monthIndexToName(accT[0][1][accT[0][1].length - 1][1].monthly[0][0])} ${accT[0][1][accT[0][1].length - 1][0]}`,
+              label: `${telemetryType} usage per month for ${monthIndexToName(lastMonth)} ${lastYear}`,
               data: dailyData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 86, 104)',

@@ -105,6 +105,7 @@ service : () -> {
   get_vehicle : (principal) -> (Result_8) query;
   get_vehicles_by_agreement : (nat) -> (Result_9) query;
   link_vehicle : (nat, principal) -> (Result);
+  pay_for_invoice : (nat) -> (Result);
   register_user : (principal, opt text) -> (Result);
   request_firmware : () -> (Result);
   sign_agreement : (nat) -> (Result);

@@ -17,8 +17,8 @@
     },
     "icp_ledger_canister": {
       "type": "custom",
-      "candid": "https://raw.githubusercontent.com/dfinity/ic/9c006a50d364edf1403ef50b24c3be39dba8a5f6/rs/rosetta-api/icp_ledger/ledger.did",
-      "wasm": "https://download.dfinity.systems/ic/9c006a50d364edf1403ef50b24c3be39dba8a5f6/canisters/ledger-canister.wasm.gz",
+      "candid": "https://raw.githubusercontent.com/dfinity/ic/b6c3687fb3a03ca65fcd49f0aadc499367904c8b/rs/rosetta-api/icrc1/ledger/ledger.did",
+      "wasm": "https://download.dfinity.systems/ic/b6c3687fb3a03ca65fcd49f0aadc499367904c8b/canisters/ic-icrc1-ledger.wasm.gz",
       "remote": {
         "id": {
           "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"

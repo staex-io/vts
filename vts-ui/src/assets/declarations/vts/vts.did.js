@@ -145,6 +145,7 @@ export const idlFactory = ({ IDL }) => {
     'get_vehicle' : IDL.Func([IDL.Principal], [Result_8], ['query']),
     'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_9], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result], []),
+    'pay_for_invoice' : IDL.Func([IDL.Nat], [Result], []),
     'register_user' : IDL.Func(
         [IDL.Principal, IDL.Opt(IDL.Text)],
         [Result],

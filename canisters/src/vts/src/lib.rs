@@ -8,6 +8,9 @@ use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc1::transfer::BlockIndex;
+use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use k256::pkcs8::DecodePublicKey;
 use rust_decimal::prelude::*;
@@ -34,6 +37,8 @@ macro_rules! impl_storable {
 }
 
 const ERR_UNAUTHORIZED: &str = "unauthorized";
+
+const TOKENS_MULTIPLIER: u128 = 1_000_000_000;
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
@@ -635,6 +640,42 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
     })
 }
 
+#[ic_cdk::update(guard = is_user)]
+async fn pay_for_invoice(id: u128) -> VTSResult<()> {
+    let mut invoice = INVOICES.with(|invoices| invoices.borrow().get(&id).ok_or(Error::NotFound))?;
+    if let InvoiceStatus::Paid = invoice.status {
+        return Ok(());
+    }
+    let provider = VEHICLES.with(|vehicles| {
+        vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)?.provider.ok_or(Error::NotFound)
+    })?;
+
+    let transfer_from_args: TransferFromArgs = TransferFromArgs {
+        amount: invoice.total_cost.into(),
+        from: Account::from(ic_cdk::caller()),
+        to: Account::from(provider),
+        memo: None,
+        spender_subaccount: None,
+        fee: None,
+        created_at_time: None,
+    };
+    ic_cdk::call::<(TransferFromArgs,), (Result<BlockIndex, TransferFromError>,)>(
+        Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap(),
+        "icrc2_transfer_from",
+        (transfer_from_args,),
+    )
+    .await
+    .map_err(|_| Error::Internal)?
+    .0
+    .map_err(|_| Error::Internal)?;
+
+    invoice.status = InvoiceStatus::Paid;
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(id, invoice));
+    PAID_INVOICES.with(|invoices| invoices.borrow_mut().insert(id, ()));
+
+    Ok(())
+}
+
 #[ic_cdk::query(guard = is_user)]
 fn get_user_agreements() -> VTSResult<Vec<Agreement>> {
     let caller = ic_cdk::api::caller();
@@ -839,7 +880,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                 vehicle,
                 agreement: SIGNED_AGREEMENT_ID,
                 period: (2024, 6),
-                total_cost: 5191,
+                total_cost: 67 * TOKENS_MULTIPLIER,
             },
         );
         invoices.borrow_mut().insert(
@@ -850,7 +891,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                 vehicle,
                 agreement: SIGNED_AGREEMENT_ID,
                 period: (2024, 7),
-                total_cost: 8122,
+                total_cost: 23 * TOKENS_MULTIPLIER,
             },
         );
     });
@@ -903,8 +944,15 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         (
                             2024,
                             AccumulatedTelemetryYearly {
-                                value: 640,
+                                value: 744,
                                 monthly: HashMap::from_iter(vec![
+                                    (
+                                        5,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 104,
+                                            daily: HashMap::from_iter(vec![]),
+                                        },
+                                    ),
                                     (
                                         6,
                                         AccumulatedTelemetryMonthy {
@@ -928,6 +976,10 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                                                 (4, 87),
                                                 (5, 21),
                                                 (6, 72),
+                                                (9, 52),
+                                                (12, 10),
+                                                (15, 19),
+                                                (20, 89),
                                             ]),
                                         },
                                     ),

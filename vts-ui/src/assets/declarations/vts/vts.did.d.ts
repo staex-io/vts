@@ -121,6 +121,7 @@ export interface _SERVICE {
   'get_vehicle' : ActorMethod<[Principal], Result_8>,
   'get_vehicles_by_agreement' : ActorMethod<[bigint], Result_9>,
   'link_vehicle' : ActorMethod<[bigint, Principal], Result>,
+  'pay_for_invoice' : ActorMethod<[bigint], Result>,
   'register_user' : ActorMethod<[Principal, [] | [string]], Result>,
   'request_firmware' : ActorMethod<[], Result>,
   'sign_agreement' : ActorMethod<[bigint], Result>,

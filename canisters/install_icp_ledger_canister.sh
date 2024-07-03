@@ -5,21 +5,28 @@ dfx canister install \
   --argument "
 (variant {
   Init = record {
-    minting_account = \"$MINTER_ACCOUNT_ID\";
-    initial_values = vec {
+    token_symbol = \"ICRC1\";
+    token_name = \"L-ICRC1\";
+    minting_account = record {
+      owner = principal \"$(dfx identity --identity anonymous get-principal)\"
+    };
+    transfer_fee = 10_000;
+    metadata = vec {};
+    initial_balances = vec {
       record {
-        \"$DEFAULT_ACCOUNT_ID\";
         record {
-          e8s = 10_000_000_000 : nat64;
+          owner = principal \"$(dfx identity --identity default get-principal)\";
         };
+        100_000_000_000_000;
       };
     };
-    send_whitelist = vec {};
-    transfer_fee = opt record {
-      e8s = 10_000 : nat64;
+    archive_options = record {
+      num_blocks_to_archive = 1000;
+      trigger_threshold = 2000;
+      controller_id = principal \"$(dfx identity --identity anonymous get-principal)\";
     };
-    token_symbol = opt \"LICP\";
-    token_name = opt \"Local ICP\";
+    feature_flags = opt record {
+      icrc2 = true;
+    };
   }
-})
-"
+})"

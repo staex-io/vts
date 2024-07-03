@@ -1,6 +1,7 @@
 import { AuthClient } from '@dfinity/auth-client'
 import { HttpAgent } from '@dfinity/agent'
-import { createActor } from '@/assets/declarations/vts'
+import { createActor as createVTSActor } from '@/assets/declarations/vts'
+import { createActor as createICPLedgerActor } from '@/assets/declarations/icp_ledger_canister'
 
 export const initAuthClient = async () => {
   const authClient = await AuthClient.create()
@@ -24,6 +25,16 @@ export const initVTSClient = async () => {
     host: import.meta.env.VITE_ICP_NODE_ENDPOINT,
     identity: authClient.getIdentity(),
   })
-  const actor = await createActor(import.meta.env.VITE_VTS_CANISTER_ID, { agent })
+  const actor = await createVTSActor(import.meta.env.VITE_VTS_CANISTER_ID, { agent })
+  return actor
+}
+
+export const initICPLedgerClient = async () => {
+  const authClient = await initAuthClient()
+  const agent = new HttpAgent({
+    host: import.meta.env.VITE_ICP_NODE_ENDPOINT,
+    identity: authClient.getIdentity(),
+  })
+  const actor = await createICPLedgerActor(import.meta.env.VITE_ICP_LEDGER_CANISTER_ID, { agent })
   return actor
 }

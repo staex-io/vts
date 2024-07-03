@@ -30,8 +30,9 @@ update_candid:
 	candid-extractor ../../../target/wasm32-unknown-unknown/release/vts.wasm > vts.did
 
 update_declarations:
-	dfx generate vts
 	rm -rf ../../../vts-ui/src/assets/declarations
+	dfx generate vts
+	dfx generate icp_ledger_canister
 	mv ../declarations ../../../vts-ui/src/assets
 
 export_identity:
