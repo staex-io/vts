@@ -357,8 +357,8 @@ async fn handle_rpc_request(req: &Request, state: &State) -> Res<Response> {
                 Ok(res) => res,
                 Err(e) => {
                     error!("failed to store telemetry: {e}");
-                    return Ok(Response::Failed)
-                },
+                    return Ok(Response::Failed);
+                }
             };
             let res = match res {
                 StoreTelemetryResponse::On => Response::TurnOn,

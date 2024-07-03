@@ -1,15 +1,17 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import { initAuthClient, initVTSClient } from '@/icp'
-import { ICPLedgerClient, principalToAccountId } from '@/icp_ledger'
+import { initAuthClient, initVTSClient, initICPLedgerClient } from '@/icp'
 </script>
 <script>
 import router from '@/router'
+import { Principal } from '@dfinity/principal'
+import { TokensMultiplier } from '@/constants'
+
 export default {
   data() {
     return {
       authClient: null,
-      principal: '',
+      principal: null,
       balance: 0,
       email: '<email>',
     }
@@ -21,14 +23,32 @@ export default {
   },
   methods: {
     async getBalance() {
-      const icpLedgerClient = await ICPLedgerClient(this.authClient)
-      const accountId = principalToAccountId(this.principal)
-      const rawBalance = await icpLedgerClient.accountBalance({
-        accountIdentifier: accountId.toHex(),
-        certified: false,
+      const icpLedgerClient = await initICPLedgerClient()
+
+      const rawBalance = await icpLedgerClient.icrc1_balance_of({
+        owner: this.principal,
+        subaccount: [],
       })
-      const balance = Number(rawBalance) / 100000000
+      const balance = Number(rawBalance) / TokensMultiplier
       this.balance = balance
+
+      // It is a hack right now to be able to pay for the invoice.
+      console.log(
+        await icpLedgerClient.icrc2_approve({
+          from: { owner: this.principal, subaccount: [] },
+          spender: {
+            owner: Principal.fromText(import.meta.env.VITE_VTS_CANISTER_ID),
+            subaccount: [],
+          },
+          amount: 100_000_000_000,
+          fee: [],
+          memo: [],
+          from_subaccount: [],
+          created_at_time: [],
+          expected_allowance: [],
+          expires_at: [],
+        }),
+      )
     },
     async getUser() {
       const vtsClient = await initVTSClient()
@@ -37,7 +57,7 @@ export default {
     },
     async initAuthClient() {
       this.authClient = await initAuthClient()
-      this.principal = this.authClient.getIdentity().getPrincipal().toText()
+      this.principal = this.authClient.getIdentity().getPrincipal()
     },
     async logout() {
       await this.authClient.logout()
@@ -53,7 +73,7 @@ export default {
 </script>
 
 <template>
-  <header>
+  <header v-if="principal !== null">
     <nav>
       <a href="/">
         <img class="logo" alt="Staex logo" src="/favicon.svg" />
@@ -66,10 +86,8 @@ export default {
         <li class="mouse-pointer" @click="logout">
           <!-- We need tag <a> to make it style like other menu entities. -->
           <a style="padding-right: 0">
-            Logout ({{ principal.slice(0, 5) }}..{{ principal.slice(60) }}) &nbsp;({{
-              balance
-            }}
-            ICP) &nbsp;({{ email }})
+            Logout ({{ principal.toText().slice(0, 5) }}..{{ principal.toText().slice(60) }})
+            &nbsp;({{ balance }} ICP) &nbsp;({{ email }})
           </a>
         </li>
         <li class="mouse-pointer" style="margin-left: 0" @click="copyIdentity">

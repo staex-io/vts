@@ -3,7 +3,7 @@ import router from '@/router'
 import { initVTSClient, initAuthClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
 import { downloadFirmware } from '@/download_firmware'
-import { VehicleLinkRouteName } from '@/constants'
+import { VehicleLinkRouteName, InvoicesRouteName, monthIndexToName } from '@/constants'
 import Chart from 'chart.js/auto'
 
 export default {
@@ -19,6 +19,7 @@ export default {
       if (vehicle.accumulated_telemetry.length === 0) return
 
       const accT = vehicle.accumulated_telemetry
+      const telemetryType = Object.keys(accT[0][0])[0]
 
       const yearly = accT[0][1].sort((a, b) => {
         if (a[0] < b[0]) return -1
@@ -33,7 +34,7 @@ export default {
           labels: years,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per year`,
+              label: `${telemetryType} usage per year`,
               data: yearsData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 157, 196)',
@@ -42,15 +43,17 @@ export default {
         },
         options: { scales: { y: { beginAtZero: true } } },
       })
+      const lastYear = yearly[yearly.length - 1][0]
+      const lastYearData = yearly[yearly.length - 1][1]
 
-      const monthly = accT[0][1][accT[0][1].length - 1][1].monthly.sort((a, b) => {
+      const monthly = lastYearData.monthly.sort((a, b) => {
         if (a[0] < b[0]) return -1
         if (a[0] > b[0]) return 1
         else return 0
       })
       const months = monthly.map((month) => {
         const m = month[0]
-        return this.monthIndexToName(m)
+        return monthIndexToName(m)
       })
       const monthlyData = monthly.map((month) => Number(month[1].value))
       new Chart(document.getElementById('chart-month'), {
@@ -59,7 +62,7 @@ export default {
           labels: months,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per month for ${accT[0][1][accT[0][1].length - 1][0]}`,
+              label: `${telemetryType} usage per month for ${lastYear}`,
               data: monthlyData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 47, 59)',
@@ -68,8 +71,10 @@ export default {
         },
         options: { scales: { y: { beginAtZero: true } } },
       })
+      const lastMonth = monthly[monthly.length - 1][0]
+      const lastMonthData = monthly[monthly.length - 1][1]
 
-      const daily = accT[0][1][accT[0][1].length - 1][1].monthly[0][1].daily.sort((a, b) => {
+      const daily = lastMonthData.daily.sort((a, b) => {
         if (a[0] < b[0]) return -1
         if (a[0] > b[0]) return 1
         else return 0
@@ -86,7 +91,7 @@ export default {
           labels: days,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per month for ${this.monthIndexToName(accT[0][1][accT[0][1].length - 1][1].monthly[0][0])} ${accT[0][1][accT[0][1].length - 1][0]}`,
+              label: `${telemetryType} usage per month for ${monthIndexToName(lastMonth)} ${lastYear}`,
               data: dailyData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 86, 104)',
@@ -141,22 +146,13 @@ export default {
         },
       })
     },
-    monthIndexToName(month) {
-      const names = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ]
-      return names[month - 1]
+    goToInvoices() {
+      router.push({
+        name: InvoicesRouteName,
+        params: {
+          vehicle: this.publicKeyToPrincipal(this.vehicle.public_key),
+        },
+      })
     },
     publicKeyToPrincipal(publicKey) {
       return Principal.selfAuthenticating(publicKey)
@@ -213,7 +209,7 @@ export default {
           <div class="card-field">
             <span class="card-field-label">Status</span>
             <span v-if="vehicle.on_off" class="card-field-value">
-              <button disabled class="action-btn success-btn">Off</button>
+              <button disabled class="action-btn success-btn">On</button>
             </span>
             <span v-if="!vehicle.on_off" class="card-field-value">
               <button disabled class="action-btn failure-btn">Off</button>
@@ -234,6 +230,12 @@ export default {
     </div>
   </div>
   <hr style="margin-bottom: 20px" />
+  <div class="centered-container">
+    <div class="item" style="width: 100%">
+      <button style="width: 100%; height: 100px" @click="goToInvoices">Invoices</button>
+    </div>
+  </div>
+  <hr style="margin: 20px 0" />
   <div
     v-if="
       vehicle !== null &&

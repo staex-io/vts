@@ -8,6 +8,9 @@ use candid::{CandidType, Decode, Deserialize, Encode, Principal};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::storable::Bound;
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
+use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc1::transfer::BlockIndex;
+use icrc_ledger_types::icrc2::transfer_from::{TransferFromArgs, TransferFromError};
 use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 use k256::pkcs8::DecodePublicKey;
 use rust_decimal::prelude::*;
@@ -34,6 +37,8 @@ macro_rules! impl_storable {
 }
 
 const ERR_UNAUTHORIZED: &str = "unauthorized";
+
+const TOKENS_MULTIPLIER: u128 = 1_000_000_000;
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
@@ -145,6 +150,12 @@ enum AgreementState {
     Signed,
 }
 
+#[derive(CandidType, Deserialize)]
+enum InvoiceStatus {
+    Unpaid,
+    Paid,
+}
+
 #[derive(BEncode, BDecode)]
 pub struct StoreTelemetryRequest {
     pub value: u128,
@@ -193,15 +204,18 @@ struct Vehicle {
     on_off: bool,
     telemetry: Telemetry,
     accumulated_telemetry: AccumulatedTelemetry,
+    invoices: Vec<u128>,
 }
 impl_storable!(Vehicle);
 
-#[derive(CandidType, Deserialize, Clone)]
+#[derive(CandidType, Deserialize)]
 struct Invoice {
     id: u128,
+    status: InvoiceStatus,
     vehicle: Principal,
-    period: (String, String),
-    total_cost: u64,
+    agreement: u128,
+    period: (i32, u8), // year + month
+    total_cost: u128,
 }
 impl_storable!(Invoice);
 
@@ -234,9 +248,10 @@ fn init() {
 
 #[ic_cdk::query(guard = is_user)]
 fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
+    // todo: restrict by get provider or customer
     INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
-        invoices.get(&invoice_id).clone().ok_or(Error::NotFound)
+        invoices.get(&invoice_id).ok_or(Error::NotFound)
     })
 }
 
@@ -326,34 +341,13 @@ fn accumulate_telemetry_data() -> VTSResult<()> {
         } else {
             (timestamp.year(), timestamp.month().previous())
         };
-        let start_period = format!("{}-{:02}-01", previous_year, previous_month as u8);
-        let end_period = format!(
-            "{}-{:02}-{}",
-            previous_year,
-            previous_month as u8,
-            match previous_month {
-                Month::January
-                | Month::March
-                | Month::May
-                | Month::July
-                | Month::August
-                | Month::October
-                | Month::December => 31,
-                Month::April | Month::June | Month::September | Month::November => 30,
-                Month::February
-                    if (previous_year % 4 == 0 && previous_year % 100 != 0) || (previous_year % 400 == 0) =>
-                    29,
-                Month::February => 28,
-            }
-        );
-
         VEHICLES.with(|vehicles| -> VTSResult<()> {
             let vehicles = vehicles.borrow();
             for (vehicle_id, _) in vehicles.iter() {
                 create_invoice(
                     vehicle_id,
-                    start_period.clone(),
-                    end_period.clone(),
+                    previous_year,
+                    previous_month as u8,
                     &get_aggregated_data(vehicle_id)?,
                 )?;
             }
@@ -498,6 +492,7 @@ fn upload_firmware(
                 telemetry: HashMap::new(),
                 on_off: true,
                 accumulated_telemetry: HashMap::new(),
+                invoices: Vec::new(),
             },
         )
     });
@@ -513,8 +508,17 @@ fn upload_firmware(
 fn get_vehicle(vehicle: Principal) -> VTSResult<Vehicle> {
     let caller = ic_cdk::api::caller();
     let vehicle = VEHICLES.with(|vehicles| vehicles.borrow().get(&vehicle).ok_or(Error::NotFound))?;
-    if vehicle.provider.unwrap_or(Principal::anonymous()) != caller && vehicle.customer != caller {
-        return Err(Error::InvalidSigner);
+    match vehicle.provider {
+        Some(provider) => {
+            if provider != caller && vehicle.customer != caller {
+                return Err(Error::InvalidSigner);
+            }
+        }
+        None => {
+            if vehicle.customer != caller {
+                return Err(Error::InvalidSigner);
+            }
+        }
     }
     Ok(vehicle)
 }
@@ -592,7 +596,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
     let caller = ic_cdk::api::caller();
     ic_cdk::println!("requested vehicle linking by {}", caller);
 
-    AGREEMENTS.with(|agreements| {
+    let vh_provider: Principal = AGREEMENTS.with(|agreements| {
         let mut agreements = agreements.borrow_mut();
         let mut agreement = agreements.get(&agreement_id).ok_or(Error::NotFound)?;
         let vh_provider = agreement.vh_provider;
@@ -608,14 +612,7 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         agreement.vehicles.insert(vehicle_identity, ());
         agreements.insert(agreement_id, agreement);
 
-        USERS.with(|users| -> VTSResult<()> {
-            let mut provider = users.borrow().get(&vh_provider).ok_or(Error::NotFound)?;
-            provider.vehicles.insert(vehicle_identity, ());
-            users.borrow_mut().insert(vh_provider, provider);
-            Ok(())
-        })?;
-
-        Ok(())
+        Ok(vh_provider)
     })?;
 
     VEHICLES.with(|vehicles| {
@@ -629,10 +626,54 @@ fn link_vehicle(agreement_id: u128, vehicle_identity: Principal) -> VTSResult<()
         }
 
         vehicle.agreement = Some(agreement_id);
+        vehicle.provider = Some(vh_provider);
         vehicles.borrow_mut().insert(vehicle_identity, vehicle);
 
         Ok(())
+    })?;
+
+    USERS.with(|users| -> VTSResult<()> {
+        let mut provider = users.borrow().get(&vh_provider).ok_or(Error::NotFound)?;
+        provider.vehicles.insert(vehicle_identity, ());
+        users.borrow_mut().insert(vh_provider, provider);
+        Ok(())
     })
+}
+
+#[ic_cdk::update(guard = is_user)]
+async fn pay_for_invoice(id: u128) -> VTSResult<()> {
+    let mut invoice = INVOICES.with(|invoices| invoices.borrow().get(&id).ok_or(Error::NotFound))?;
+    if let InvoiceStatus::Paid = invoice.status {
+        return Ok(());
+    }
+    let provider = VEHICLES.with(|vehicles| {
+        vehicles.borrow().get(&invoice.vehicle).ok_or(Error::NotFound)?.provider.ok_or(Error::NotFound)
+    })?;
+
+    let transfer_from_args: TransferFromArgs = TransferFromArgs {
+        amount: invoice.total_cost.into(),
+        from: Account::from(ic_cdk::caller()),
+        to: Account::from(provider),
+        memo: None,
+        spender_subaccount: None,
+        fee: None,
+        created_at_time: None,
+    };
+    ic_cdk::call::<(TransferFromArgs,), (Result<BlockIndex, TransferFromError>,)>(
+        Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap(),
+        "icrc2_transfer_from",
+        (transfer_from_args,),
+    )
+    .await
+    .map_err(|_| Error::Internal)?
+    .0
+    .map_err(|_| Error::Internal)?;
+
+    invoice.status = InvoiceStatus::Paid;
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(id, invoice));
+    PAID_INVOICES.with(|invoices| invoices.borrow_mut().insert(id, ()));
+
+    Ok(())
 }
 
 #[ic_cdk::query(guard = is_user)]
@@ -735,7 +776,11 @@ fn delete_pending_invoices(ids: Vec<u128>) {
 fn turn_on_off_vehicle(vehicle: Principal, on_off: bool) -> VTSResult<()> {
     VEHICLES.with(|vehicles| -> VTSResult<()> {
         let mut v = vehicles.borrow().get(&vehicle).ok_or(Error::NotFound)?;
-        if v.provider.unwrap_or(Principal::anonymous()) != ic_cdk::caller() {
+        if let Some(provider) = v.provider {
+            if provider != ic_cdk::caller() {
+                return Err(Error::InvalidSigner);
+            }
+        } else {
             return Err(Error::InvalidSigner);
         }
         v.on_off = on_off;
@@ -764,6 +809,8 @@ fn clean_state() {
 fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
     const SIGNED_AGREEMENT_ID: u128 = 1;
     const UNSIGNED_AGREEMENT_ID: u128 = 2;
+    const PAID_VEHICLE_INVOICE_ID: u128 = 1;
+    const UNPAID_VEHICLE_INVOICE_ID: u128 = 2;
 
     let vehicle_public_key = hex::decode(vehicle_public_key_hex).unwrap();
     let vehicle = Principal::self_authenticating(&vehicle_public_key);
@@ -824,6 +871,32 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
     // Add one pending firmware request.
     FIRMWARE_REQUESTS.with(|requests| requests.borrow_mut().insert(vh_customer, ()));
 
+    INVOICES.with(|invoices| {
+        invoices.borrow_mut().insert(
+            PAID_VEHICLE_INVOICE_ID,
+            Invoice {
+                id: PAID_VEHICLE_INVOICE_ID,
+                status: InvoiceStatus::Paid,
+                vehicle,
+                agreement: SIGNED_AGREEMENT_ID,
+                period: (2024, 6),
+                total_cost: 67 * TOKENS_MULTIPLIER,
+            },
+        );
+        invoices.borrow_mut().insert(
+            UNPAID_VEHICLE_INVOICE_ID,
+            Invoice {
+                id: UNPAID_VEHICLE_INVOICE_ID,
+                status: InvoiceStatus::Unpaid,
+                vehicle,
+                agreement: SIGNED_AGREEMENT_ID,
+                period: (2024, 7),
+                total_cost: 23 * TOKENS_MULTIPLIER,
+            },
+        );
+    });
+    INVOICE_ID_COUNTER.set(UNPAID_VEHICLE_INVOICE_ID);
+
     // Initialize vehicle.
     VEHICLES.with(|vehicles| {
         vehicles.borrow_mut().insert(
@@ -871,8 +944,15 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         (
                             2024,
                             AccumulatedTelemetryYearly {
-                                value: 640,
+                                value: 744,
                                 monthly: HashMap::from_iter(vec![
+                                    (
+                                        5,
+                                        AccumulatedTelemetryMonthy {
+                                            value: 104,
+                                            daily: HashMap::from_iter(vec![]),
+                                        },
+                                    ),
                                     (
                                         6,
                                         AccumulatedTelemetryMonthy {
@@ -896,6 +976,10 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                                                 (4, 87),
                                                 (5, 21),
                                                 (6, 72),
+                                                (9, 52),
+                                                (12, 10),
+                                                (15, 19),
+                                                (20, 89),
                                             ]),
                                         },
                                     ),
@@ -904,6 +988,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         ),
                     ]),
                 )]),
+                invoices: vec![PAID_VEHICLE_INVOICE_ID, UNPAID_VEHICLE_INVOICE_ID],
             },
         )
     });
@@ -911,36 +996,31 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
 
 fn create_invoice(
     vehicle_id: Principal,
-    start_period: String,
-    end_period: String,
+    year: i32,
+    month: u8,
     aggregated_data: &AccumulatedTelemetry,
 ) -> VTSResult<()> {
     let existing_invoice = INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
         invoices.iter().any(|invoice| {
-            invoice.1.vehicle == vehicle_id
-                && invoice.1.period.0 == start_period
-                && invoice.1.period.1 == end_period
+            invoice.1.vehicle == vehicle_id && invoice.1.period.0 == year && invoice.1.period.1 == month
         })
     });
     if existing_invoice {
         return Ok(());
     }
 
-    let vehicle = VEHICLES
+    let mut vehicle = VEHICLES
         .with(|vehicles| {
             let vehicles = vehicles.borrow();
             vehicles.get(&vehicle_id)
         })
         .ok_or(Error::NotFound)?;
-
-    let agreement_conditions = vehicle
-        .agreement
-        .and_then(|agreement_id| {
-            AGREEMENTS.with(|agreements| {
-                let agreements = agreements.borrow();
-                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
-            })
+    let agreement_id = vehicle.agreement.ok_or(Error::NotFound)?;
+    let agreement_conditions = AGREEMENTS
+        .with(|agreements| {
+            let agreements = agreements.borrow();
+            agreements.get(&agreement_id).map(|agreement| agreement.conditions)
         })
         .ok_or(Error::NotFound)?;
     let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
@@ -959,13 +1039,17 @@ fn create_invoice(
     });
     let invoice = Invoice {
         id: invoice_id,
+        status: InvoiceStatus::Unpaid,
         vehicle: vehicle_id,
-        period: (start_period, end_period),
-        total_cost: total_cost.to_u64().ok_or(Error::InvalidData)?,
+        agreement: agreement_id,
+        period: (year, month),
+        total_cost: total_cost.to_u128().ok_or(Error::Internal)?,
     };
+    vehicle.invoices.push(invoice_id);
 
     INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
     PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
+    VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(vehicle_id, vehicle));
 
     Ok(())
 }

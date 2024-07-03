@@ -22,13 +22,17 @@ install: pre_install update_candid update_declarations
 	../../install_icp_ledger_canister.sh
 	dfx canister install --async-call -y vts --wasm ../../../target/wasm32-unknown-unknown/release/vts.wasm
 
+reinstall: update_candid update_declarations
+	dfx canister install --mode reinstall --async-call -y vts --wasm ../../../target/wasm32-unknown-unknown/release/vts.wasm
+
 update_candid:
 	cargo build --target wasm32-unknown-unknown --release -p vts --locked --features clean_state,predefined_telemetry
 	candid-extractor ../../../target/wasm32-unknown-unknown/release/vts.wasm > vts.did
 
 update_declarations:
-	dfx generate vts
 	rm -rf ../../../vts-ui/src/assets/declarations
+	dfx generate vts
+	dfx generate icp_ledger_canister
 	mv ../declarations ../../../vts-ui/src/assets
 
 export_identity:

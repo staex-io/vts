@@ -31,10 +31,13 @@ export const idlFactory = ({ IDL }) => {
     'Err' : Error,
   });
   const Result_3 = IDL.Variant({ 'Ok' : IDL.Principal, 'Err' : Error });
+  const InvoiceStatus = IDL.Variant({ 'Paid' : IDL.Null, 'Unpaid' : IDL.Null });
   const Invoice = IDL.Record({
     'id' : IDL.Nat,
-    'period' : IDL.Tuple(IDL.Text, IDL.Text),
-    'total_cost' : IDL.Nat64,
+    'status' : InvoiceStatus,
+    'period' : IDL.Tuple(IDL.Int32, IDL.Nat8),
+    'agreement' : IDL.Nat,
+    'total_cost' : IDL.Nat,
     'vehicle' : IDL.Principal,
   });
   const Result_4 = IDL.Variant({ 'Ok' : Invoice, 'Err' : Error });
@@ -97,6 +100,7 @@ export const idlFactory = ({ IDL }) => {
         IDL.Vec(IDL.Tuple(IDL.Int32, AccumulatedTelemetryYearly)),
       )
     ),
+    'invoices' : IDL.Vec(IDL.Nat),
     'on_off' : IDL.Bool,
   });
   const Result_8 = IDL.Variant({ 'Ok' : Vehicle, 'Err' : Error });
@@ -141,6 +145,7 @@ export const idlFactory = ({ IDL }) => {
     'get_vehicle' : IDL.Func([IDL.Principal], [Result_8], ['query']),
     'get_vehicles_by_agreement' : IDL.Func([IDL.Nat], [Result_9], ['query']),
     'link_vehicle' : IDL.Func([IDL.Nat, IDL.Principal], [Result], []),
+    'pay_for_invoice' : IDL.Func([IDL.Nat], [Result], []),
     'register_user' : IDL.Func(
         [IDL.Principal, IDL.Opt(IDL.Text)],
         [Result],

@@ -27,7 +27,7 @@ fn main() {
     // Gateway client.
     let mut client = gateway_tcp::Client::new(SocketAddr::from_str("127.0.0.1:3322").unwrap()).unwrap();
 
-    let vehicle_on = true;
+    let mut vehicle_on = true;
 
     // Let's generate fake gas data and send it to gateway.
     loop {
@@ -49,17 +49,15 @@ fn main() {
             .unwrap();
         match res {
             gateway_tcp::Response::TurnOn => {
-                if vehicle_on {
-                    eprintln!("TurnOn response; Vehicle is working; Skip this response")
-                } else {
-                    eprintln!("TurnOn response; Vehicle is not working; Turn on vehicle")
+                if !vehicle_on {
+                    eprintln!("TurnOn response; Vehicle is not working; Turn on vehicle");
+                    vehicle_on = true;
                 }
             }
             gateway_tcp::Response::TurnOff => {
                 if vehicle_on {
-                    eprintln!("TurnOff response; Vehicle is working; Turn off vehicle")
-                } else {
-                    eprintln!("TurnOff response; Vehicle is not working; Skip this response")
+                    eprintln!("TurnOff response; Vehicle is working; Turn off vehicle");
+                    vehicle_on = false;
                 }
             }
             gateway_tcp::Response::Failed => {

@@ -161,6 +161,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
+name = "base32"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23ce669cd6c8588f79e15cf450314f9638f967fc5770ff1c7c1deb0925ea7cfa"
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -979,9 +985,9 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff384f182459bec490a7f50a58bbdf8f7a6934de4dcc259e30c70641bcbcb917"
+checksum = "0c44983d6e97135d86132111bae5b86c34c498d96b4f182638bebcc7ac07e03c"
 dependencies = [
  "candid",
  "ic-cdk-macros",
@@ -992,9 +998,9 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk-macros"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01dc6bc425ec048d6ac4137c7c0f2cfbd6f8b0be8efc568feae2b265f566117c"
+checksum = "3af44fb4ec3a4b18831c9d3303ca8fa2ace846c4022d50cb8df4122635d3782e"
 dependencies = [
  "candid",
  "proc-macro2",
@@ -1006,9 +1012,9 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk-timers"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc4a42e669e47cf58fc18e071898e67922c81aa480edbf930ed1468dd53f44ee"
+checksum = "61fdca8e1d9ffb65ae68019b342c182009de9dc206fd849db0b0e90ee19f6fa4"
 dependencies = [
  "futures",
  "ic-cdk",
@@ -1085,6 +1091,23 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "thiserror",
+]
+
+[[package]]
+name = "icrc-ledger-types"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804c892bf95652101660a25cea10f059f73eb8973f6b04e0349758fda1190447"
+dependencies = [
+ "base32",
+ "candid",
+ "crc32fast",
+ "hex",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "serde_bytes",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -1857,9 +1880,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.118"
+version = "1.0.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d947f6b3163d8857ea16c4fa0dd4840d52f3041039a85decd46867eb1abef2e4"
+checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
 dependencies = [
  "itoa",
  "ryu",
@@ -2351,6 +2374,7 @@ dependencies = [
  "ic-cdk",
  "ic-cdk-timers",
  "ic-stable-structures",
+ "icrc-ledger-types",
  "k256",
  "rand",
  "rust_decimal",

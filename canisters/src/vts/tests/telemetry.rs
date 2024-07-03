@@ -73,7 +73,7 @@ async fn test_get_aggregated_data() {
     aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap();
 
     assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2023).unwrap().value, 361);
-    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().value, 640);
+    assert_eq!(aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().value, 744);
     assert_eq!(
         aggregated_data.get(&TelemetryType::Gas).unwrap().get(&2024).unwrap().monthly.get(&6).unwrap().value,
         294
