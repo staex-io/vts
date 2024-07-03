@@ -30,10 +30,13 @@ type Error = variant {
 };
 type Invoice = record {
   id : nat;
-  period : record { text; text };
-  total_cost : nat64;
+  status : InvoiceStatus;
+  period : record { int32; nat8 };
+  agreement : nat;
+  total_cost : nat;
   vehicle : principal;
 };
+type InvoiceStatus = variant { Paid; Unpaid };
 type PendingInvoice = record {
   id : nat;
   vehicle : principal;
@@ -78,6 +81,7 @@ type Vehicle = record {
     TelemetryType;
     vec record { int32; AccumulatedTelemetryYearly };
   };
+  invoices : vec nat;
   on_off : bool;
 };
 service : () -> {

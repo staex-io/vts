@@ -199,6 +199,7 @@ struct Vehicle {
     on_off: bool,
     telemetry: Telemetry,
     accumulated_telemetry: AccumulatedTelemetry,
+    invoices: Vec<u128>,
 }
 impl_storable!(Vehicle);
 
@@ -207,6 +208,7 @@ struct Invoice {
     id: u128,
     status: InvoiceStatus,
     vehicle: Principal,
+    agreement: u128,
     period: (i32, u8), // year + month
     total_cost: u128,
 }
@@ -241,6 +243,7 @@ fn init() {
 
 #[ic_cdk::query(guard = is_user)]
 fn get_invoice(invoice_id: u128) -> Result<Invoice, Error> {
+    // todo: restrict by get provider or customer
     INVOICES.with(|invoices| {
         let invoices = invoices.borrow();
         invoices.get(&invoice_id).ok_or(Error::NotFound)
@@ -484,6 +487,7 @@ fn upload_firmware(
                 telemetry: HashMap::new(),
                 on_off: true,
                 accumulated_telemetry: HashMap::new(),
+                invoices: Vec::new(),
             },
         )
     });
@@ -764,6 +768,8 @@ fn clean_state() {
 fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, vehicle_public_key_hex: String) {
     const SIGNED_AGREEMENT_ID: u128 = 1;
     const UNSIGNED_AGREEMENT_ID: u128 = 2;
+    const PAID_VEHICLE_INVOICE_ID: u128 = 1;
+    const UNPAID_VEHICLE_INVOICE_ID: u128 = 2;
 
     let vehicle_public_key = hex::decode(vehicle_public_key_hex).unwrap();
     let vehicle = Principal::self_authenticating(&vehicle_public_key);
@@ -826,17 +832,29 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
 
     INVOICES.with(|invoices| {
         invoices.borrow_mut().insert(
-            1,
+            PAID_VEHICLE_INVOICE_ID,
             Invoice {
-                id: 1,
+                id: PAID_VEHICLE_INVOICE_ID,
+                status: InvoiceStatus::Paid,
+                vehicle,
+                agreement: SIGNED_AGREEMENT_ID,
+                period: (2024, 6),
+                total_cost: 5191,
+            },
+        );
+        invoices.borrow_mut().insert(
+            UNPAID_VEHICLE_INVOICE_ID,
+            Invoice {
+                id: UNPAID_VEHICLE_INVOICE_ID,
                 status: InvoiceStatus::Unpaid,
                 vehicle,
+                agreement: SIGNED_AGREEMENT_ID,
                 period: (2024, 7),
-                total_cost: 123,
+                total_cost: 8122,
             },
         );
     });
-    AGREEMENT_ID_COUNTER.set(1);
+    INVOICE_ID_COUNTER.set(UNPAID_VEHICLE_INVOICE_ID);
 
     // Initialize vehicle.
     VEHICLES.with(|vehicles| {
@@ -918,6 +936,7 @@ fn fill_predefined_telemetry(vh_provider: Principal, vh_customer: Principal, veh
                         ),
                     ]),
                 )]),
+                invoices: vec![PAID_VEHICLE_INVOICE_ID, UNPAID_VEHICLE_INVOICE_ID],
             },
         )
     });
@@ -939,20 +958,17 @@ fn create_invoice(
         return Ok(());
     }
 
-    let vehicle = VEHICLES
+    let mut vehicle = VEHICLES
         .with(|vehicles| {
             let vehicles = vehicles.borrow();
             vehicles.get(&vehicle_id)
         })
         .ok_or(Error::NotFound)?;
-
-    let agreement_conditions = vehicle
-        .agreement
-        .and_then(|agreement_id| {
-            AGREEMENTS.with(|agreements| {
-                let agreements = agreements.borrow();
-                agreements.get(&agreement_id).map(|agreement| agreement.conditions)
-            })
+    let agreement_id = vehicle.agreement.ok_or(Error::NotFound)?;
+    let agreement_conditions = AGREEMENTS
+        .with(|agreements| {
+            let agreements = agreements.borrow();
+            agreements.get(&agreement_id).map(|agreement| agreement.conditions)
         })
         .ok_or(Error::NotFound)?;
     let gas_price = Decimal::from_str(&agreement_conditions.gas_price).map_err(|_| Error::InvalidData)?;
@@ -973,12 +989,15 @@ fn create_invoice(
         id: invoice_id,
         status: InvoiceStatus::Unpaid,
         vehicle: vehicle_id,
+        agreement: agreement_id,
         period: (year, month),
         total_cost: total_cost.to_u128().ok_or(Error::Internal)?,
     };
+    vehicle.invoices.push(invoice_id);
 
     INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice));
     PENDING_INVOICES.with(|pending| pending.borrow_mut().insert(invoice_id, ()));
+    VEHICLES.with(|vehicles| vehicles.borrow_mut().insert(vehicle_id, vehicle));
 
     Ok(())
 }

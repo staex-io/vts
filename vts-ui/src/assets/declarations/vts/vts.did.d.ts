@@ -33,10 +33,14 @@ export type Error = { 'InvalidSigner' : null } |
   { 'DecodeTelemetry' : null };
 export interface Invoice {
   'id' : bigint,
-  'period' : [string, string],
+  'status' : InvoiceStatus,
+  'period' : [number, number],
+  'agreement' : bigint,
   'total_cost' : bigint,
   'vehicle' : Principal,
 }
+export type InvoiceStatus = { 'Paid' : null } |
+  { 'Unpaid' : null };
 export interface PendingInvoice {
   'id' : bigint,
   'vehicle' : Principal,
@@ -90,6 +94,7 @@ export interface Vehicle {
   'accumulated_telemetry' : Array<
     [TelemetryType, Array<[number, AccumulatedTelemetryYearly]>]
   >,
+  'invoices' : Array<bigint>,
   'on_off' : boolean,
 }
 export interface _SERVICE {

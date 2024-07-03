@@ -3,7 +3,7 @@ import router from '@/router'
 import { initVTSClient, initAuthClient } from '@/icp'
 import { Principal } from '@dfinity/principal'
 import { downloadFirmware } from '@/download_firmware'
-import { VehicleLinkRouteName } from '@/constants'
+import { VehicleLinkRouteName, InvoicesRouteName, monthIndexToName } from '@/constants'
 import Chart from 'chart.js/auto'
 
 export default {
@@ -50,7 +50,7 @@ export default {
       })
       const months = monthly.map((month) => {
         const m = month[0]
-        return this.monthIndexToName(m)
+        return monthIndexToName(m)
       })
       const monthlyData = monthly.map((month) => Number(month[1].value))
       new Chart(document.getElementById('chart-month'), {
@@ -86,7 +86,7 @@ export default {
           labels: days,
           datasets: [
             {
-              label: `${Object.keys(accT[0][0])[0]} usage per month for ${this.monthIndexToName(accT[0][1][accT[0][1].length - 1][1].monthly[0][0])} ${accT[0][1][accT[0][1].length - 1][0]}`,
+              label: `${Object.keys(accT[0][0])[0]} usage per month for ${monthIndexToName(accT[0][1][accT[0][1].length - 1][1].monthly[0][0])} ${accT[0][1][accT[0][1].length - 1][0]}`,
               data: dailyData,
               borderWidth: 1,
               backgroundColor: 'rgb(0, 86, 104)',
@@ -141,22 +141,13 @@ export default {
         },
       })
     },
-    monthIndexToName(month) {
-      const names = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ]
-      return names[month - 1]
+    goToInvoices() {
+      router.push({
+        name: InvoicesRouteName,
+        params: {
+          vehicle: this.publicKeyToPrincipal(this.vehicle.public_key),
+        },
+      })
     },
     publicKeyToPrincipal(publicKey) {
       return Principal.selfAuthenticating(publicKey)
@@ -234,6 +225,12 @@ export default {
     </div>
   </div>
   <hr style="margin-bottom: 20px" />
+  <div class="centered-container">
+    <div class="item" style="width: 100%">
+      <button style="width: 100%; height: 100px" @click="goToInvoices">Invoices</button>
+    </div>
+  </div>
+  <hr style="margin: 20px 0" />
   <div
     v-if="
       vehicle !== null &&
