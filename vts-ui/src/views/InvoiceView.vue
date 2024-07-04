@@ -1,5 +1,5 @@
 <script>
-import { initVTSClient } from '@/icp'
+import { initVTSClient, initAuthClient } from '@/icp'
 import { monthIndexToName, TokenMultiplier } from '@/constants'
 import { Principal } from '@dfinity/principal'
 import Chart from 'chart.js/auto'
@@ -8,7 +8,9 @@ export default {
   data() {
     return {
       vehicle: '',
+      ownPrincipal: '',
       invoice: null,
+      agreement: null,
       activePayBtn: false,
     }
   },
@@ -16,9 +18,21 @@ export default {
     this.vehicle = this.$route.params.vehicle
     const invoiceId = this.$route.params.id
 
+    const authClient = await initAuthClient()
+    this.ownPrincipal = authClient.getIdentity()._principal.toText()
+
     const vtsClient = await initVTSClient()
+
     const invoiceRes = await vtsClient.get_invoice(Number(invoiceId))
-    this.invoice = invoiceRes.Ok
+    const invoice = invoiceRes.Ok
+
+    const agreementsRes = await vtsClient.get_user_agreements()
+    const agreements = agreementsRes.Ok
+    this.agreement = agreements.find((agreement) => {
+      return agreement.id === invoice.agreement
+    })
+
+    this.invoice = invoice
 
     await this.prepareChart()
   },
@@ -80,6 +94,9 @@ export default {
     prepareTotalCost(totalCost) {
       return Number(totalCost) / TokenMultiplier
     },
+    isCustomer() {
+      return this.ownPrincipal === this.agreement.vh_customer.toText()
+    },
     async payForInvoice() {
       if (this.activePayBtn) return
       this.activePayBtn = true
@@ -103,6 +120,10 @@ export default {
             <span class="card-field-value">{{ vehicle }}</span>
           </div>
           <div class="card-field">
+            <span class="card-field-label">Agreement</span>
+            <span class="card-field-value">{{ agreement.name }}</span>
+          </div>
+          <div class="card-field">
             <span class="card-field-label">Period</span>
             <span class="card-field-value">{{ prettyPeriod(invoice.period) }}</span>
           </div>
@@ -120,11 +141,13 @@ export default {
               </button>
               <div v-if="invoice.status.Unpaid === null">
                 <button class="status-btn failure-btn" disabled>Unpaid</button>
-                &nbsp;
-                <button class="status-btn" @click="payForInvoice">
-                  <p v-if="!activePayBtn">Pay</p>
-                  <p v-else class="loader" />
-                </button>
+                <span v-if="isCustomer()">
+                  &nbsp;
+                  <button class="status-btn" @click="payForInvoice">
+                    <p v-if="!activePayBtn">Pay</p>
+                    <p v-else class="loader" />
+                  </button>
+                </span>
               </div>
             </span>
           </div>

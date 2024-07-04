@@ -33,6 +33,8 @@ In order to use predefined telemetry data use folloding command:
 dfx canister call vts fill_predefined_telemetry '(principal "<vehicle provider principal>", principal "<vehicle customer principal>", "<vehicle public key in hex>")'
 ```
 
+Example of vehicle public key in hex: `3056301006072a8648ce3d020106052b8104000a034200040302eb5de84ad2859bb1ed4c6b758dbc142611aab3f449d3cc0dce7fbdb886fe7ca019d5945c8980c41686d238c61283186ce9e65dcd3524ddbe7b249e9d80d5`.
+
 ## ICP ledger canister
 
 We need this canister to use ICP tokens and transfer them between users to pay for invoices.
