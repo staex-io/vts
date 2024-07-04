@@ -1027,7 +1027,8 @@ fn create_invoice(
 
     let mut total_cost = Decimal::new(0, 0);
     if let Some(aggregated_data) = aggregated_data.get(&TelemetryType::Gas) {
-        for usage in aggregated_data.values().map(|v| Decimal::new(v.value as i64, 0)) {
+        for usage in aggregated_data.values().map(|v| Decimal::from_u128(v.value)) {
+            let usage = usage.ok_or(Error::Internal)?;
             total_cost += usage * gas_price;
         }
     }
