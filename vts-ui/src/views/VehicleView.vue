@@ -255,7 +255,9 @@ export default {
   <div v-else-if="turnOnOffActive" class="centered-container">
     <div class="item" style="width: 100%">
       <button style="width: 100%; height: 100px">
-        <div class="loader" />
+        <div class="loader-container">
+          <div class="loader" />
+        </div>
       </button>
     </div>
   </div>
