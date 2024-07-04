@@ -214,7 +214,6 @@ thead tr {
   border-radius: 50%;
   width: 15px;
   height: 15px;
-  margin-right: 5px;
   box-sizing: unset;
   animation: spin 2s linear infinite;
 }

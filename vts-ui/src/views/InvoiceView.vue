@@ -139,16 +139,16 @@ export default {
               <button v-if="invoice.status.Paid === null" class="status-btn success-btn" disabled>
                 Paid
               </button>
-              <div v-if="invoice.status.Unpaid === null">
-                <button class="status-btn failure-btn" disabled>Unpaid</button>
-                <span v-if="isCustomer()">
-                  &nbsp;
-                  <button class="status-btn" @click="payForInvoice">
-                    <p v-if="!activePayBtn">Pay</p>
-                    <p v-else class="loader" />
-                  </button>
-                </span>
-              </div>
+              <button v-else class="status-btn failure-btn" disabled>Unpaid</button>
+            </span>
+          </div>
+          <div v-if="isCustomer() && invoice.status.Unpaid === null" class="card-field">
+            <span class="card-field-label">-</span>
+            <span class="card-field-value">
+              <button class="status-btn" @click="payForInvoice">
+                <p v-if="!activePayBtn">Pay</p>
+                <div v-else class="loader" />
+              </button>
             </span>
           </div>
         </div>
